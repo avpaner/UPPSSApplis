@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applicant Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #531C79;
+            --accent: #92CD41;
+            --glass: rgba(255, 255, 255, 0.98); 
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --logo-scale: clamp(160px, 25vw, 200px);
+            --title-scale: 85%;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%), 
+                        url('background.jpg') center/cover no-repeat fixed;
+            padding: 20px;
+        }
+
+        .logo {
+            width: var(--logo-scale);
+            height: auto;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.15));
+            z-index: 2;
+        }
+
+        .login-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            padding: 50px 45px; 
+            border-radius: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 100%;
+            max-width: 440px; 
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .title-img {
+            width: var(--title-scale); 
+            max-width: 300px;
+            height: auto;
+            margin-bottom: 35px;
+            display: block;
+        }
+
+        button {
+            width: 100%; 
+            height: 60px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            background-color: #f8fafc;
+            color: var(--primary);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        button:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        button::before {
+            content: '';
+            width: 0; height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            background: linear-gradient(90deg, var(--primary), #7429a3, var(--accent));
+            transition: width 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+            z-index: -1;
+        }
+
+        button:hover:not(:disabled) {
+            color: #fff;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px rgba(83, 28, 121, 0.2);
+        }
+
+        button:hover:not(:disabled)::before { width: 100%; }
+
+        #error-msg {
+            color: #d32f2f;
+            font-size: 12px;
+            margin-top: 15px;
+            font-weight: 500;
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .logo { width: 140px; }
+            .login-card { padding: 40px 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <img src="logo.png" alt="University Logo" class="logo">
+    
+    <div class="login-card">
+        <img src="title.png" alt="Applicant Management System" class="title-img">
+        
+        <button id="loginBtn">
+            LOG-IN WITH UP MAIL
+        </button>
+
+        <p id="error-msg"></p>
+    </div>
+
+    <script>
+        // 1. Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+            authDomain: "uppss-26c6f.firebaseapp.com",
+            databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com",
+            projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
+            appId: "1:734429390148:web:97b7cad461e5505943a311",
+            measurementId: "G-0YZN3JDQLT"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ hd: "up.edu.ph" }); // Force UP Mail selection
+
+        const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSSEY-k4FxyiIB1Jl6FQVbbqwv7PbWIujuXl4ugR1bglQgTmkgfoOoSuTfnuBnldZVACXypaKhxoDFZ/pub?output=csv";
+
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMsg = document.getElementById('error-msg');
+
+        // 2. Function to fetch and check CSV
+        async function isUserAuthorized(email) {
+            try {
+                const response = await fetch(csvUrl);
+                const data = await response.text();
+                // Simple check: see if the email string exists in the CSV content
+                // We convert to lowercase to avoid case-sensitivity issues
+                return data.toLowerCase().includes(email.toLowerCase());
+            } catch (error) {
+                console.error("Database fetch error:", error);
+                return false;
+            }
+        }
+
+        // 3. Login Event
+        loginBtn.addEventListener('click', () => {
+            errorMsg.style.display = 'none';
+            loginBtn.disabled = true;
+            loginBtn.innerText = "VERIFYING...";
+
+            auth.signInWithPopup(provider)
+                .then(async (result) => {
+                    const user = result.user;
+                    const email = user.email;
+
+                    const authorized = await isUserAuthorized(email);
+
+                    if (authorized) {
+                        // Success Logic
+                        window.location.href = "dashboard.html"; // Redirect to your system
+                    } else {
+                        // Not on the list logic
+                        errorMsg.innerText = "Access Denied: Email not found in the verified list.";
+                        errorMsg.style.display = 'block';
+                        auth.signOut();
+                        resetBtn();
+                    }
+                })
+                .catch((error) => {
+                    errorMsg.innerText = "Login failed. Please try again.";
+                    errorMsg.style.display = 'block';
+                    console.error(error);
+                    resetBtn();
+                });
+        });
+
+        function resetBtn() {
+            loginBtn.disabled = false;
+            loginBtn.innerText = "LOG-IN WITH UP MAIL";
+        }
+    </script>
+</body>
+</html>
