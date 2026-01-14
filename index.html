@@ -156,9 +156,9 @@
         const auth = firebase.auth();
         const provider = new firebase.auth.GoogleAuthProvider();
         
-        // Force selection of @up.mail.ph accounts
+        // Force selection of @up.edu.ph accounts
         provider.setCustomParameters({ 
-            hd: "up.mail.ph",
+            hd: "up.edu.ph",
             prompt: 'select_account' 
         });
 
@@ -207,9 +207,9 @@
                     loginBtn.innerText = "VERIFYING PROFILE...";
                     const email = result.user.email;
 
-                    // Validate email domain - must be @up.mail.ph
-                    if (!email || !email.endsWith('@up.mail.ph')) {
-                        errorMsg.innerText = "Access Denied: Only @up.mail.ph email addresses are allowed.";
+                    // Validate email domain - must be @up.edu.ph
+                    if (!email || !email.endsWith('@up.edu.ph')) {
+                        errorMsg.innerText = "Access Denied: Only @up.edu.ph email addresses are allowed.";
                         errorMsg.style.display = 'block';
                         auth.signOut();
                         resetBtn();
@@ -267,4 +267,5 @@
         }
     </script>
 </body>
+
 </html>
