@@ -180,7 +180,7 @@
             }
 
             if (userProfile) {
-                const fullName = userProfile['Full Name'] || userProfile['full_name'] || 'Resident';
+                const fullName = userProfile['Full Name'] || userProfile['full_name'] || 'User';
                 const email = userProfile['email'] || localStorage.getItem('userEmail') || '';
                 const category = userProfile['Category'] || '';
                 const batch = userProfile['Batch'] || '';
@@ -188,16 +188,12 @@
                 // Update welcome message
                 document.getElementById('welcomeTitle').textContent = `Welcome, ${fullName}!`;
                 
-                // Display user info
+                // Display user info - replace email with category
                 const userDetails = document.getElementById('userDetails');
                 userDetails.innerHTML = `
                     <div class="detail-item">
                         <div class="detail-label">Full Name</div>
                         <div class="detail-value">${fullName}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Email</div>
-                        <div class="detail-value">${email}</div>
                     </div>
                     ${category ? `
                     <div class="detail-item">

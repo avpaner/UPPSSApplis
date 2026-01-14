@@ -37,6 +37,25 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .history-card {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .container-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .container-layout {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body class="bg-[#F9FAFB] font-sans antialiased text-gray-900 min-h-screen p-4 md:p-8">
@@ -50,10 +69,27 @@
         </div>
     </header>
 
-    <div id="inbox-container" class="max-w-xl mx-auto space-y-3">
-        <div id="loader" class="flex flex-col items-center py-20">
-            <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Syncing with Firebase...</p>
+    <div class="container-layout">
+        <!-- Left: Pending Requests -->
+        <div>
+            <h2 class="text-xl font-black text-brand mb-4 uppercase tracking-tight">Pending Requests</h2>
+            <div id="inbox-container" class="space-y-3">
+                <div id="loader" class="flex flex-col items-center py-20">
+                    <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
+                    <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Syncing with Firebase...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: History -->
+        <div>
+            <h2 class="text-xl font-black text-brand mb-4 uppercase tracking-tight">History</h2>
+            <div id="history-container" class="space-y-3">
+                <div id="history-loader" class="flex flex-col items-center py-20">
+                    <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
+                    <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Loading history...</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -76,7 +112,6 @@
 
         // 2. GET RESIDENT NAME FROM STORED USER DATA
         function getResidentName() {
-            // Try sessionStorage first, then localStorage
             const sessionProfile = sessionStorage.getItem('userProfile');
             const localProfile = localStorage.getItem('userProfile');
             
@@ -91,7 +126,6 @@
                 return userProfile['Full Name'] || userProfile['full_name'] || 'Unknown Resident';
             }
             
-            // Fallback to old method
             return localStorage.getItem("fullName") || localStorage.getItem("user_Full Name") || "Unknown Resident";
         }
         
@@ -102,18 +136,17 @@
             </span>
         `;
 
-        // 3. LISTEN FOR DATA
+        // 3. PENDING REQUESTS
         const container = document.getElementById('inbox-container');
         const loader = document.getElementById('loader');
 
-        // Query: Only pending requests for THIS resident
-        const q = query(
+        const pendingQuery = query(
             collection(db, "requests"),
             where("resident", "==", residentName),
             where("status", "==", "pending")
         );
 
-        onSnapshot(q, (snapshot) => {
+        onSnapshot(pendingQuery, (snapshot) => {
             loader.classList.add('hidden');
             container.innerHTML = "";
 
@@ -136,7 +169,52 @@
             container.innerHTML = `<p class="text-red-500 text-center text-xs">Error connecting to database. Check rules.</p>`;
         });
 
-        // 4. UI RENDERER
+        // 4. HISTORY (APPROVED & DECLINED)
+        const historyContainer = document.getElementById('history-container');
+        const historyLoader = document.getElementById('history-loader');
+
+        const historyQuery = query(
+            collection(db, "requests"),
+            where("resident", "==", residentName)
+        );
+
+        onSnapshot(historyQuery, (snapshot) => {
+            historyLoader.classList.add('hidden');
+            historyContainer.innerHTML = "";
+
+            const historyItems = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.status !== 'pending') {
+                    historyItems.push({ id: doc.id, ...data });
+                }
+            });
+
+            if (historyItems.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                        <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">No history yet</p>
+                        <p class="text-gray-300 text-xs mt-1">Approved and declined requests will appear here.</p>
+                    </div>`;
+                return;
+            }
+
+            // Sort by timestamp (newest first)
+            historyItems.sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return timeB - timeA;
+            });
+
+            historyItems.forEach(item => {
+                renderHistoryCard(item.id, item);
+            });
+        }, (error) => {
+            console.error("Firebase Error:", error);
+            historyContainer.innerHTML = `<p class="text-red-500 text-center text-xs">Error loading history.</p>`;
+        });
+
+        // 5. UI RENDERER FOR PENDING
         function renderRequestCard(id, data) {
             const html = `
                 <div id="card-${id}" class="card-enter bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between group transition-all hover:border-brand/20">
@@ -163,7 +241,42 @@
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        // 5. FIREBASE UPDATE ACTION
+        // 6. UI RENDERER FOR HISTORY
+        function renderHistoryCard(id, data) {
+            const status = data.status || 'unknown';
+            const statusColor = status === 'approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+            const statusIcon = status === 'approved' ? '✓' : '✗';
+            
+            const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : 'N/A';
+
+            const html = `
+                <div id="history-${id}" class="history-card bg-white border rounded-2xl p-4 shadow-sm ${statusColor}">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center font-black text-sm">
+                                ${data.applicant ? data.applicant.charAt(0) : '?'}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm leading-none">${data.applicant || 'Unknown'}</h4>
+                                <p class="text-[9px] font-bold uppercase mt-1 opacity-75">${data.slot_id || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <div class="text-xs font-black uppercase">${statusIcon} ${status}</div>
+                    </div>
+                    <div class="text-[10px] opacity-75 mt-2">
+                        ${timestamp}
+                    </div>
+                </div>
+            `;
+            historyContainer.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 7. FIREBASE UPDATE ACTION
         window.processAction = async (docId, status) => {
             const card = document.getElementById(`card-${docId}`);
             card.style.opacity = "0.4";

@@ -169,6 +169,8 @@
             if (!userProfile) return;
 
             const fullName = userProfile['Full Name'] || userProfile['full_name'] || 'User';
+            const email = userProfile['email'] || userEmail || '';
+            const category = userProfile['Category'] || '';
             const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
             
             // Update desktop sidebar
@@ -178,7 +180,10 @@
             
             if (desktopAvatar) desktopAvatar.innerText = initials;
             if (desktopName) desktopName.innerText = fullName;
-            if (desktopRole) desktopRole.innerText = 'Resident';
+            // Show category under name, or email if no category
+            if (desktopRole) {
+                desktopRole.innerText = category || email || 'Resident';
+            }
 
             // Update mobile header
             const mobileAvatar = document.querySelector('.mobile-header .m-avatar');

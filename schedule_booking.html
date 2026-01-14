@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment | Applicant Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root { 
+            --primary: #531C79; 
+            --bg: #F8FAFC; 
+            --border: #E2E8F0; 
+            --text-sub: #64748b; 
+            --slot-free: #f1f5f9; 
+            --slot-available: #dcfce7; 
+            --slot-selected: #531C79; 
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg); min-height: 100vh; color: #1e293b; padding: 20px; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 30px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid var(--border);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 25px;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        label { font-size: 11px; font-weight: 800; color: var(--text-sub); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); font-weight: 600; outline: none; transition: 0.2s; font-size: 14px; }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(83, 28, 121, 0.1); }
+
+        .btn-book { 
+            border: none; 
+            padding: 14px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-weight: 700; 
+            color: white; 
+            width: 100%; 
+            background: var(--primary); 
+            box-shadow: 0 4px 12px rgba(83, 28, 121, 0.3); 
+            transition: 0.2s; 
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .btn-book:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-book:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f3ff;
+            border-radius: 12px;
+            font-size: 11px;
+            color: var(--primary);
+            line-height: 1.6;
+        }
+
+        .info-box strong { display: block; margin-bottom: 5px; }
+
+        .main-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid var(--border);
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .grid-wrapper { 
+            background: white; 
+            border: 1px solid var(--border); 
+            border-radius: 20px; 
+            overflow: auto; 
+            max-height: 75vh; 
+            padding: 20px; 
+        }
+        .timetable { border-collapse: separate; border-spacing: 6px; table-layout: fixed; width: 100%; }
+        
+        thead th { 
+            position: sticky; 
+            top: 0; 
+            background: #fff; 
+            z-index: 20; 
+            padding: 15px 0; 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: var(--text-sub); 
+            border-bottom: 2px solid var(--border); 
+            width: 80px; 
+        }
+        .time-col { 
+            position: sticky; 
+            left: 0; 
+            background: #f8fafc !important; 
+            z-index: 15; 
+            width: 140px !important; 
+            font-size: 11px; 
+            font-weight: 700; 
+            text-align: left; 
+            border-right: 2px solid var(--border); 
+            color: var(--primary);
+            padding: 12px !important;
+        }
+
+        .slot { 
+            width: 100%; 
+            min-height: 65px; 
+            border-radius: 12px; 
+            background: var(--slot-free); 
+            transition: 0.2s; 
+            cursor: not-allowed; 
+            border: 2px solid transparent;
+        }
+        .slot.resident-available { 
+            background: var(--slot-available); 
+            cursor: pointer; 
+            border-color: #86efac; 
+        }
+        .slot.resident-available:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+        }
+        .slot.selected { 
+            background: var(--slot-selected) !important; 
+            box-shadow: 0 0 15px rgba(83, 28, 121, 0.4); 
+            transform: scale(1.1); 
+            border-color: var(--primary);
+            color: white;
+        }
+
+        #toast { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            padding: 15px 25px; 
+            border-radius: 12px; 
+            color: white; 
+            font-weight: 700; 
+            display: none; 
+            z-index: 1000; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: relative;
+                top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>Book Appointment</h2>
+            
+            <div class="input-group">
+                <label>Your Name</label>
+                <input type="text" id="applicantName" placeholder="Enter your name" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Select Resident</label>
+                <select id="residentSelect" onchange="loadResidentSchedule()">
+                    <option value="">-- Select Resident --</option>
+                </select>
+            </div>
+
+            <button class="btn-book" onclick="saveRequest()" id="bookBtn" disabled>Request Appointment</button>
+
+            <div class="info-box">
+                <strong>📋 Instructions:</strong>
+                1. Select a resident from the dropdown<br>
+                2. Find a <span style="background: #dcfce7; padding: 2px 6px; border-radius: 4px;">green</span> available slot<br>
+                3. Click to select the slot<br>
+                4. Submit your request
+            </div>
+        </div>
+
+        <div class="main-content">
+            <h1 class="page-title">Schedule Availability</h1>
+            <div class="grid-wrapper">
+                <table class="timetable">
+                    <thead>
+                        <tr>
+                            <th>Time Range</th>
+                            <th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grid"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get user data
+        function getUserData() {
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
+            
+            if (sessionProfile) return JSON.parse(sessionProfile);
+            if (localProfile) return JSON.parse(localProfile);
+            return null;
+        }
+
+        const userProfile = getUserData();
+        const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail') || '';
+        const applicantName = userProfile ? (userProfile['Full Name'] || userProfile['full_name'] || '') : '';
+        
+        if (applicantName) {
+            document.getElementById('applicantName').value = applicantName;
+        }
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+            authDomain: "uppss-26c6f.firebaseapp.com",
+            databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com",
+            projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
+            appId: "1:734429390148:web:97b7cad461e5505943a311"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Supabase config
+        const SUPABASE_URL = 'https://havsuikahafqciurmaeq.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Load residents from Supabase
+        async function loadResidents() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('Residents')
+                    .select('Full Name, email')
+                    .order('Full Name');
+                
+                if (error) throw error;
+                
+                const select = document.getElementById('residentSelect');
+                select.innerHTML = '<option value="">-- Select Resident --</option>';
+                
+                if (data && data.length > 0) {
+                    data.forEach(resident => {
+                        const name = resident['Full Name'] || resident['full_name'] || 'Unknown';
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading residents:', err);
+                notify('Error loading residents', '#f43f5e');
+            }
+        }
+
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        function buildGrid() {
+            let html = '';
+            for (let i = 0; i < 27; i++) { 
+                let startT = 420 + (i * 30); 
+                let sH = Math.floor(startT/60), sM = startT%60===0?'00':'30', sAP = sH>=12?'PM':'AM', sDH = sH>12?sH-12:(sH===0?12:sH);
+                let endT = startT + 30;
+                let eH = Math.floor(endT/60), eM = endT%60===0?'00':'30', eAP = eH>=12?'PM':'AM', eDH = eH>12?eH-12:(eH===0?12:eH);
+                let timeKey = `${sDH}${sM}${sAP}`;
+                html += `<tr><td class="time-col"><b>${sDH}:${sM} ${sAP}</b><br><small style="color: var(--text-sub);">${eDH}:${eM} ${eAP}</small></td>`;
+                days.forEach(d => { 
+                    html += `<td><div class="slot" id="${d}-${timeKey}" onclick="selectSlot(this)"></div></td>`;
+                });
+                html += `</tr>`;
+            }
+            document.getElementById('grid').innerHTML = html;
+        }
+        buildGrid();
+
+        async function loadResidentSchedule() {
+            const resident = document.getElementById('residentSelect').value.trim();
+            if (!resident) {
+                document.querySelectorAll('.slot').forEach(s => s.classList.remove('resident-available', 'selected'));
+                document.getElementById('bookBtn').disabled = true;
+                return;
+            }
+
+            const snap = await db.ref('schedules/' + resident).once('value');
+            const val = snap.val();
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('resident-available', 'selected'));
+            
+            if(val && val.available_slots) {
+                val.available_slots.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.classList.add('resident-available');
+                });
+                notify(`Showing ${resident}'s availability`, "#531C79");
+            } else { 
+                notify("No schedule found for this resident", "#64748b"); 
+            }
+        }
+
+        function selectSlot(el) {
+            if(!el.classList.contains('resident-available')) return;
+            document.querySelectorAll('.slot.selected').forEach(s => s.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('bookBtn').disabled = false;
+        }
+
+        async function saveRequest() {
+            const applicant = document.getElementById('applicantName').value.trim();
+            const resident = document.getElementById('residentSelect').value.trim();
+            const selected = document.querySelector('.slot.selected');
+
+            if(!applicant) return notify("Enter your name first", "#f43f5e");
+            if(!resident) return notify("Select a resident first", "#f43f5e");
+            if(!selected) return notify("Select an available slot", "#f43f5e");
+
+            const requestData = {
+                applicant: applicant,
+                applicant_email: userEmail,
+                resident: resident,
+                slot_id: selected.id,
+                status: "pending",
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                document.getElementById('bookBtn').disabled = true;
+                await db.ref('requests').push(requestData);
+                notify("Request Sent Successfully! 🎉", "#10b981");
+                selected.classList.remove('selected');
+                document.getElementById('bookBtn').disabled = false;
+            } catch (e) {
+                notify("Database Error", "#f43f5e");
+                document.getElementById('bookBtn').disabled = false;
+            }
+        }
+
+        function notify(m, c) {
+            const s = document.getElementById('toast');
+            s.innerText = m; 
+            s.style.background = c; 
+            s.style.display = 'block';
+            setTimeout(() => s.style.display = 'none', 3000);
+        }
+
+        // Load residents on page load
+        loadResidents();
+    </script>
+</body>
+</html>

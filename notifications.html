@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | Applicant Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root { 
+            --primary: #531C79; 
+            --bg: #F8FAFC; 
+            --border: #E2E8F0; 
+            --text-sub: #64748b;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg); min-height: 100vh; color: #1e293b; padding: 30px; }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+        }
+
+        .notifications-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .notification-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+
+        .notification-card:hover {
+            box-shadow: 0 4px 12px rgba(83, 28, 121, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .notification-card.approved {
+            border-left: 4px solid var(--success);
+        }
+
+        .notification-card.declined {
+            border-left: 4px solid var(--error);
+        }
+
+        .notification-card.pending {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .notification-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        .notification-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-declined {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .notification-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .detail-item {
+            font-size: 13px;
+        }
+
+        .detail-label {
+            font-weight: 700;
+            color: var(--text-sub);
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state-text {
+            color: var(--text-sub);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        #loader {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 class="page-title">Notifications</h1>
+
+        <div id="loader">
+            <div class="spinner"></div>
+            <p style="color: var(--text-sub); font-weight: 600;">Loading notifications...</p>
+        </div>
+
+        <div id="notifications-container" class="notifications-list" style="display: none;">
+            <!-- Notifications will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Get user data
+        function getUserData() {
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
+            
+            if (sessionProfile) return JSON.parse(sessionProfile);
+            if (localProfile) return JSON.parse(localProfile);
+            return null;
+        }
+
+        const userProfile = getUserData();
+        const applicantName = userProfile ? (userProfile['Full Name'] || userProfile['full_name'] || '') : '';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+            authDomain: "uppss-26c6f.firebaseapp.com",
+            databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com",
+            projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
+            appId: "1:734429390148:web:97b7cad461e5505943a311"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function renderNotification(data, id) {
+            const status = data.status || 'pending';
+            const statusClass = `status-${status}`;
+            const cardClass = `notification-card ${status}`;
+            
+            const html = `
+                <div class="${cardClass}">
+                    <div class="notification-header">
+                        <div class="notification-title">Appointment Request</div>
+                        <div class="notification-status ${statusClass}">${status}</div>
+                    </div>
+                    <div class="notification-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Resident</div>
+                            <div class="detail-value">${data.resident || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Time Slot</div>
+                            <div class="detail-value">${data.slot_id || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Date Submitted</div>
+                            <div class="detail-value">${formatDate(data.timestamp)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        // Listen for requests
+        db.ref('requests').on('value', (snapshot) => {
+            const loader = document.getElementById('loader');
+            const container = document.getElementById('notifications-container');
+            
+            loader.style.display = 'none';
+            container.style.display = 'flex';
+            container.innerHTML = '';
+
+            const requests = snapshot.val() || {};
+            const userRequests = [];
+
+            // Filter requests for this applicant
+            Object.keys(requests).forEach(key => {
+                const req = requests[key];
+                if (req.applicant === applicantName || req.applicant_email === (sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail'))) {
+                    userRequests.push({ ...req, id: key });
+                }
+            });
+
+            if (userRequests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔔</div>
+                        <div class="empty-state-text">No notifications yet</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by timestamp (newest first)
+            userRequests.sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return timeB - timeA;
+            });
+
+            userRequests.forEach(req => {
+                container.insertAdjacentHTML('beforeend', renderNotification(req, req.id));
+            });
+        });
+    </script>
+</body>
+</html>
