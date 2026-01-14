@@ -45,7 +45,7 @@
         <h1 class="brand-title">REQUESTS</h1>
         <div id="user-pill" class="flex justify-center">
             <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest animate-pulse">
-                Awaiting Dashboard Sync...
+                Establishing Connection...
             </span>
         </div>
     </header>
@@ -53,7 +53,7 @@
     <div id="inbox-container" class="max-w-xl mx-auto space-y-3">
         <div id="loader" class="flex flex-col items-center py-20">
             <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Connecting to Cloud...</p>
+            <p class="text-gray-400 text-[10px] mt-4 font-bold uppercase tracking-tighter">Syncing with Dashboard...</p>
         </div>
     </div>
 
@@ -78,23 +78,23 @@
         const loader = document.getElementById('loader');
         let unsubscribe = null;
 
-        // 2. BRIDGE: LISTEN FOR DATA FROM PARENT (dashboard_residentmem.html)
-        window.addEventListener('message', function(event) {
+        // 2. LISTEN FOR DATA FROM DASHBOARD
+        window.addEventListener('message', (event) => {
             if (event.data.type === 'SYNC_USER_DATA') {
                 const fullName = event.data.name;
-                initRequestSync(fullName);
+                startResidentSession(fullName);
             }
         });
 
-        function initRequestSync(residentName) {
-            // Update UI Header
+        function startResidentSession(residentName) {
+            // Update UI Header (Replaces "Establishing Connection")
             document.getElementById('user-pill').innerHTML = `
                 <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
-                    Account: ${residentName}
+                    Resident: ${residentName}
                 </span>
             `;
 
-            // Clear any old listeners to prevent duplicate data
+            // Clean up previous listener if user switches accounts
             if (unsubscribe) unsubscribe();
 
             // 3. START REAL-TIME FIREBASE QUERY
@@ -111,8 +111,8 @@
                 if (snapshot.empty) {
                     container.innerHTML = `
                         <div class="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                            <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">No pending requests</p>
-                            <p class="text-gray-300 text-[10px] mt-1">Updates appear here automatically.</p>
+                            <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">Inbox Clear</p>
+                            <p class="text-gray-300 text-[10px] mt-1 italic uppercase font-medium">New requests will appear here</p>
                         </div>`;
                     return;
                 }
@@ -122,7 +122,7 @@
                 });
             }, (error) => {
                 console.error("Firebase Error:", error);
-                container.innerHTML = `<p class="text-red-500 text-center text-xs">Error: Check Firebase Rules.</p>`;
+                container.innerHTML = `<p class="text-red-500 text-center text-[10px] font-bold">Sync Error. Check permissions.</p>`;
             });
         }
 
@@ -131,20 +131,20 @@
             const html = `
                 <div id="card-${id}" class="card-enter bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between group transition-all hover:border-brand/20">
                     <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-black text-sm">
+                        <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-black text-sm uppercase">
                             ${(data.applicant || "?").charAt(0)}
                         </div>
                         <div>
-                            <h4 class="font-bold text-gray-900 text-sm leading-none">${data.applicant || "Unknown"}</h4>
-                            <p class="text-[10px] text-brand font-bold uppercase mt-1 tracking-tight">${data.slot_id || "Unspecified Slot"}</p>
+                            <h4 class="font-bold text-gray-900 text-sm leading-none">${data.applicant || "Unknown Applicant"}</h4>
+                            <p class="text-[10px] text-brand font-black uppercase mt-1 tracking-tight">${data.slot_id || "Slot Missing"}</p>
                         </div>
                     </div>
                     
                     <div class="flex space-x-2">
-                        <button onclick="processAction('${id}', 'declined')" class="p-2 rounded-lg border border-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition cursor-pointer">
+                        <button onclick="processAction('${id}', 'declined')" class="p-2 rounded-lg border border-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all cursor-pointer">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
-                        <button onclick="processAction('${id}', 'approved')" class="px-4 py-2 rounded-lg bg-brand text-white font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-brand/20 active:scale-95 transition cursor-pointer">
+                        <button onclick="processAction('${id}', 'approved')" class="px-5 py-2 rounded-lg bg-brand text-white font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-brand/20 active:scale-95 transition-all cursor-pointer">
                             Approve
                         </button>
                     </div>
@@ -153,23 +153,23 @@
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        // 5. PROCESS ACTION (APPROVE/DECLINE)
+        // 5. FIREBASE UPDATE ACTION
         window.processAction = async (docId, status) => {
             const card = document.getElementById(`card-${docId}`);
             if(!card) return;
 
-            card.style.opacity = "0.4";
+            card.style.opacity = "0.3";
             card.style.pointerEvents = "none";
             
             try {
                 const docRef = doc(db, "requests", docId);
                 await updateDoc(docRef, { status: status });
-                // Note: onSnapshot will automatically remove the card from UI
+                // onSnapshot handles removal automatically
             } catch (err) {
                 console.error("Action failed:", err);
                 card.style.opacity = "1";
                 card.style.pointerEvents = "auto";
-                alert("Database Update Failed. Check permissions.");
+                alert("Action Failed: Check Firebase Database Rules.");
             }
         };
     </script>
