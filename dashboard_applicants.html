@@ -89,7 +89,71 @@
         </div>
     </main>
 
+    <!-- Hidden storage for user data -->
+    <div id="user-data-storage" style="display: none;"></div>
+
     <script>
+        // --- USER DATA LOADING ---
+        // Check if user is logged in, redirect if not
+        let userProfile = null;
+        let userRole = null;
+        let userEmail = null;
+
+        function loadUserData() {
+            // Try sessionStorage first, then localStorage
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
+            
+            if (sessionProfile) {
+                userProfile = JSON.parse(sessionProfile);
+                userRole = sessionStorage.getItem('userRole');
+                userEmail = sessionStorage.getItem('userEmail');
+            } else if (localProfile) {
+                userProfile = JSON.parse(localProfile);
+                userRole = localStorage.getItem('userRole');
+                userEmail = localStorage.getItem('userEmail');
+                // Restore to sessionStorage for current session
+                sessionStorage.setItem('userProfile', localProfile);
+                sessionStorage.setItem('userRole', userRole);
+                sessionStorage.setItem('userEmail', userEmail);
+            } else {
+                // No user data found, redirect to login
+                window.location.href = "index.html";
+                return;
+            }
+
+            // Verify user is an applicant
+            if (userRole !== 'applicant') {
+                window.location.href = "index.html";
+                return;
+            }
+
+            // Store user data in hidden element for easy access
+            const storageDiv = document.getElementById('user-data-storage');
+            storageDiv.setAttribute('data-profile', JSON.stringify(userProfile));
+            storageDiv.setAttribute('data-role', userRole);
+            storageDiv.setAttribute('data-email', userEmail);
+
+            // Auto-populate applicant name field
+            const applicantName = userProfile['Full Name'] || userProfile['full_name'] || '';
+            if (applicantName) {
+                document.getElementById('applicantName').value = applicantName;
+            }
+        }
+
+        // Load user data on page load
+        loadUserData();
+
+        // Helper function to get user data anytime
+        function getUserData() {
+            return {
+                profile: userProfile,
+                role: userRole,
+                email: userEmail,
+                getField: (fieldName) => userProfile ? (userProfile[fieldName] || localStorage.getItem(`user_${fieldName}`) || '') : ''
+            };
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
             authDomain: "uppss-26c6f.firebaseapp.com",
@@ -148,8 +212,12 @@
             if(!applicant) return notify("Enter your name first", "#f43f5e");
             if(!selected) return notify("Select an available slot", "#f43f5e");
 
+            // Use stored user email if available
+            const applicantEmail = userEmail || '';
+
             const requestData = {
                 applicant: applicant,
+                applicant_email: applicantEmail,
                 resident: resident,
                 slot_id: selected.id,
                 status: "pending",

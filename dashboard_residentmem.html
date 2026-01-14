@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Management System Portal</title>
+    <title>Resident Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -16,56 +16,66 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); height: 100vh; display: flex; overflow: hidden; }
 
+        /* LOGO STYLING */
+        .logo-container {
+            width: 100%;
+            display: flex;
+            justify-content: center; /* Centers horizontally in Flex */
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            max-width: 150px; 
+            height: auto;
+            display: block;
+        }
+
+        .mobile-header .logo {
+            max-height: 35px;
+            width: auto;
+        }
+
         /* SIDEBAR */
         aside { width: 260px; background: white; border-right: 1px solid var(--border); padding: 30px 20px; display: flex; flex-direction: column; }
-        
-        .logo-container { width: 100%; display: flex; justify-content: center; margin-bottom: 40px; }
-        .logo { max-width: 150px; height: auto; display: block; }
-
         .nav-items { flex-grow: 1; }
         .nav-item { padding: 14px 18px; border-radius: 14px; cursor: pointer; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; transition: all 0.2s ease; }
         .nav-item.active { background: #f5f3ff; color: var(--primary); }
 
-        /* Profile Section */
+        /* Sidebar Profile Section */
         .sidebar-profile { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
-        
-        .profile-pic { 
-            width: 42px; height: 42px; border-radius: 50%; 
-            object-fit: cover; background: var(--primary); 
-            border: 2px solid var(--border);
-        }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+        .user-info { font-size: 0.85rem; }
+        .user-name { font-weight: 700; color: #1e293b; display: block; }
+        .user-role { font-size: 0.75rem; color: var(--text-sub); }
 
-        .avatar-fallback { 
-            width: 42px; height: 42px; border-radius: 50%; 
-            background: var(--primary); color: white; 
-            display: flex; align-items: center; justify-content: center; 
-            font-weight: 700; text-transform: uppercase; 
-        }
+        /* Mobile Header */
+        .mobile-header { display: none; position: fixed; top: 0; width: 100%; height: 60px; background: white; border-bottom: 1px solid var(--border); z-index: 100; align-items: center; justify-content: space-between; padding: 0 20px; }
+        .m-avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
 
-        .user-info { font-size: 0.85rem; overflow: hidden; }
-        .user-name { font-weight: 800; color: #1e293b; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-        .user-subtext { font-size: 0.75rem; color: var(--text-sub); font-weight: 600; }
+        /* MOBILE NAV */
+        .mobile-nav { display: none; position: fixed; bottom: 0; width: 100%; height: 70px; background: white; border-top: 1px solid var(--border); z-index: 100; }
+        .m-nav-btn { flex: 1; min-width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: var(--text-sub); }
+        .m-nav-btn.active { color: var(--primary); }
 
-        /* Viewport */
+        /* VIEWPORT */
         main { flex-grow: 1; height: 100vh; position: relative; }
         .view { display: none; height: 100%; width: 100%; }
         .view.active { display: block; }
         iframe { width: 100%; height: 100%; border: none; }
 
-        /* Mobile Adjustments */
-        .mobile-header { display: none; position: fixed; top: 0; width: 100%; height: 60px; background: white; border-bottom: 1px solid var(--border); z-index: 100; align-items: center; justify-content: space-between; padding: 0 20px; }
         @media (max-width: 1100px) {
             aside { display: none; }
             .mobile-header { display: flex; }
-            main { height: calc(100vh - 60px); margin-top: 60px; }
+            .mobile-nav { display: flex; }
+            main { height: calc(100vh - 130px); margin-top: 60px; }
         }
     </style>
 </head>
 <body>
 
     <header class="mobile-header">
-        <img src="logo.png" alt="Logo" class="logo" style="max-height: 30px;">
-        <div id="m-avatar-container"></div>
+        <img src="logo.png" alt="Logo" class="logo">
+        <div class="m-avatar">--</div>
     </header>
 
     <aside>
@@ -75,105 +85,128 @@
         
         <div class="nav-items">
             <div class="nav-item active" id="d-home" onclick="show('home')">🏠 Homepage</div>
-            <div class="nav-item" id="d-prof" onclick="show('prof')">👤 Info</div>
+            <div class="nav-item" id="d-prof" onclick="show('prof')">👤 Applicant Info</div>
             <div class="nav-item" id="d-cal" onclick="show('cal')">🗓️ Calendar</div>
-            <div class="nav-item" id="d-grid" onclick="show('grid')">📅 Schedule</div>
+            <div class="nav-item" id="d-grid" onclick="show('grid')">📅 Schedule Availability</div>
             <div class="nav-item" id="d-req" onclick="show('req')">📝 Requests</div>
         </div>
 
         <div class="sidebar-profile">
-            <div id="avatar-container"></div>
+            <div class="avatar">--</div>
             <div class="user-info">
-                <span class="user-name" id="display-name">Loading...</span>
-                <span class="user-subtext" id="display-subtext">---</span>
+                <span class="user-name">Loading...</span>
+                <span class="user-role">Resident</span>
             </div>
         </div>
     </aside>
+
+    <nav class="mobile-nav">
+        <div class="m-nav-btn active" id="m-home" onclick="show('home')"><span>🏠</span><span>HOME</span></div>
+        <div class="m-nav-btn" id="m-prof" onclick="show('prof')"><span>👤</span><span>INFO</span></div>
+        <div class="m-nav-btn" id="m-cal" onclick="show('cal')"><span>🗓️</span><span>CAL</span></div>
+        <div class="m-nav-btn" id="m-grid" onclick="show('grid')"><span>📅</span><span>SCHED</span></div>
+        <div class="m-nav-btn" id="m-req" onclick="show('req')"><span>📝</span><span>REQ</span></div>
+    </nav>
 
     <main>
         <div id="view-home" class="view active"><iframe src="home.html"></iframe></div>
         <div id="view-prof" class="view"><iframe src="profile.html"></iframe></div>
         <div id="view-cal" class="view"><iframe src="calendar.html"></iframe></div>
-        <div id="view-grid" class="view"><iframe src="grid.html" id="schedule-iframe"></iframe></div>
-        <div id="view-req" class="view"><iframe src="requests.html" id="requests-iframe"></iframe></div>
+        <div id="view-grid" class="view"><iframe src="grid.html"></iframe></div>
+        <div id="view-req" class="view"><iframe src="requests.html"></iframe></div>
     </main>
 
-    <script>
-        // Global variable to store profile once loaded
-        let userProfileData = null;
+    <!-- Hidden storage for user data -->
+    <div id="user-data-storage" style="display: none;"></div>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedData = sessionStorage.getItem('userProfile');
-            if (!savedData) {
+    <script>
+        // --- USER DATA LOADING ---
+        // Check if user is logged in, redirect if not
+        let userProfile = null;
+        let userRole = null;
+        let userEmail = null;
+
+        function loadUserData() {
+            // Try sessionStorage first, then localStorage
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
+            
+            if (sessionProfile) {
+                userProfile = JSON.parse(sessionProfile);
+                userRole = sessionStorage.getItem('userRole');
+                userEmail = sessionStorage.getItem('userEmail');
+            } else if (localProfile) {
+                userProfile = JSON.parse(localProfile);
+                userRole = localStorage.getItem('userRole');
+                userEmail = localStorage.getItem('userEmail');
+                // Restore to sessionStorage for current session
+                sessionStorage.setItem('userProfile', localProfile);
+                sessionStorage.setItem('userRole', userRole);
+                sessionStorage.setItem('userEmail', userEmail);
+            } else {
+                // No user data found, redirect to login
                 window.location.href = "index.html";
                 return;
             }
 
-            userProfileData = JSON.parse(savedData);
-            
-            const fullName = userProfileData['Full Name'] || "User";
-            const subtext = userProfileData['Category'] || userProfileData['Batch'] || "Member";
-            const photoUrl = userProfileData['Picture'];
+            // Verify user is a resident
+            if (userRole !== 'resident') {
+                window.location.href = "index.html";
+                return;
+            }
 
-            // Update UI Sidebar
-            document.getElementById('display-name').innerText = fullName;
-            document.getElementById('display-subtext').innerText = subtext;
+            // Store user data in hidden element for easy access
+            const storageDiv = document.getElementById('user-data-storage');
+            storageDiv.setAttribute('data-profile', JSON.stringify(userProfile));
+            storageDiv.setAttribute('data-role', userRole);
+            storageDiv.setAttribute('data-email', userEmail);
 
+            // Update sidebar with user information
+            updateSidebar();
+        }
+
+        function updateSidebar() {
+            if (!userProfile) return;
+
+            const fullName = userProfile['Full Name'] || userProfile['full_name'] || 'User';
             const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-            const fallbackHtml = `<div class="avatar-fallback">${initials}</div>`;
-            const avatarHtml = photoUrl 
-                ? `<img src="${photoUrl}" class="profile-pic" onerror="this.style.display='none'; this.nextSibling.style.display='flex'">` 
-                : '';
             
-            const finalAvatarHtml = avatarHtml + (photoUrl ? `<div class="avatar-fallback" style="display:none">${initials}</div>` : fallbackHtml);
-            document.getElementById('avatar-container').innerHTML = finalAvatarHtml;
-            document.getElementById('m-avatar-container').innerHTML = finalAvatarHtml;
+            // Update desktop sidebar
+            const desktopAvatar = document.querySelector('.sidebar-profile .avatar');
+            const desktopName = document.querySelector('.sidebar-profile .user-name');
+            const desktopRole = document.querySelector('.sidebar-profile .user-role');
+            
+            if (desktopAvatar) desktopAvatar.innerText = initials;
+            if (desktopName) desktopName.innerText = fullName;
+            if (desktopRole) desktopRole.innerText = 'Resident';
+
+            // Update mobile header
+            const mobileAvatar = document.querySelector('.mobile-header .m-avatar');
+            if (mobileAvatar) mobileAvatar.innerText = initials;
+        }
+
+        // Load user data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
         });
 
-        /**
-         * show(id) handles both UI switching AND sending data to iframes
-         */
+        // Helper function to get user data anytime
+        function getUserData() {
+            return {
+                profile: userProfile,
+                role: userRole,
+                email: userEmail,
+                getField: (fieldName) => userProfile ? (userProfile[fieldName] || localStorage.getItem(`user_${fieldName}`) || '') : ''
+            };
+        }
+
         function show(id) {
-            // 1. UI Navigation logic
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .m-nav-btn').forEach(n => n.classList.remove('active'));
             
             document.getElementById('view-' + id).classList.add('active');
-            const dNav = document.getElementById('d-' + id);
-            if(dNav) dNav.classList.add('active');
-
-            // 2. Data Sync Logic
-            if (!userProfileData) return;
-
-            // Map the tab ID to the specific Iframe ID
-            const iframeMap = {
-                'grid': 'schedule-iframe',
-                'req': 'requests-iframe'
-            };
-
-            const targetIframeId = iframeMap[id];
-            if (targetIframeId) {
-                const iframe = document.getElementById(targetIframeId);
-                
-                if (iframe) {
-                    const fullName = userProfileData['Full Name'];
-
-                    // Helper to send message
-                    const sendSyncMessage = () => {
-                        iframe.contentWindow.postMessage({
-                            type: 'SYNC_USER_DATA',
-                            name: fullName
-                        }, '*');
-                        console.log(`Syncing ${fullName} to ${targetIframeId}`);
-                    };
-
-                    // Send immediately
-                    sendSyncMessage();
-
-                    // Send again after 500ms in case the iframe was still initializing
-                    setTimeout(sendSyncMessage, 500);
-                }
-            }
+            document.getElementById('d-' + id).classList.add('active');
+            document.getElementById('m-' + id).classList.add('active');
         }
     </script>
 </body>

@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UPLB AMIS Schedule Sync</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -14,447 +13,721 @@
     <style>
         :root { 
             --primary: #531C79; 
-            --success: #49A631; 
             --border: #E2E8F0; 
-            --danger: #ef4444; 
-            --bg-light: #F8FAFC;
+            --blocked-red: #BE4AAD; 
+            --reschedule-amber: #D97706;
+            --initials-green: #49A631;
+            --glow-v: rgba(83, 28, 121, 0.4);
+            --glow-a: rgba(217, 119, 6, 0.4);
+        }
+        body { font-family: 'Inter', sans-serif; background: #F8FAFC; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        body.edit-mode-active { 
+            box-shadow: inset 0 0 0 8px var(--primary), 0 0 25px var(--glow-v);
+            animation: editModePulse 1.5s ease-in-out infinite;
+            border: 4px solid var(--primary);
         }
         
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: var(--bg-light); 
-            user-select: none; 
-            margin: 0; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
+        @keyframes editModePulse {
+            0%, 100% { 
+                box-shadow: inset 0 0 0 8px var(--primary), 0 0 25px var(--glow-v);
+                border-color: var(--primary);
+            }
+            50% { 
+                box-shadow: inset 0 0 0 8px var(--primary), 0 0 50px var(--glow-v);
+                border-color: #7429a3;
+            }
         }
+        
+        body.reschedule-mode-active { box-shadow: inset 0 0 0 8px var(--reschedule-amber), 0 0 25px var(--glow-a); }
 
-        /* --- HEADER --- */
-        .app-title { 
-            color: var(--primary); 
-            font-size: clamp(32px, 8vw, 50px); 
-            font-weight: 900; 
-            text-align: center; 
-            margin: 20px 0 10px 0; 
-            letter-spacing: -2px; 
-            text-transform: uppercase; 
-        }
-
-        #editing-bar { 
+        #mode-banner { 
             display: none; 
-            background: var(--primary); 
             color: white; 
             text-align: center; 
-            padding: 8px; 
-            font-size: 0.75rem; 
             font-weight: 900; 
-            letter-spacing: 1px; 
+            font-size: 12px; 
+            padding: 10px 0; 
+            letter-spacing: 2px; 
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        body.edit-mode-active #mode-banner, body.reschedule-mode-active #mode-banner { display: block; }
+        body.edit-mode-active #mode-banner { 
+            background: var(--primary);
+            animation: bannerBlink 1s ease-in-out infinite;
+        }
+        
+        @keyframes bannerBlink {
+            0%, 100% { 
+                opacity: 1; 
+                background: var(--primary);
+            }
+            50% { 
+                opacity: 0.85; 
+                background: #7429a3;
+            }
+        }
+        
+        body.reschedule-mode-active #mode-banner { background: var(--reschedule-amber); }
+        
+        body.edit-mode-active * {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
         }
 
-        /* --- GRID TABLE --- */
-        .table-container { 
-            flex-grow: 1; 
-            background: white; 
-            overflow: auto; 
-            position: relative; 
-            width: 100%; 
-            border: 3px solid transparent; 
-        }
-        body.is-editing .table-container { border-color: #E1BEE7; }
-
-        table { width: 100%; border-collapse: collapse; min-width: 850px; table-layout: fixed; }
+        .app-title { color: var(--primary); font-size: 28px; font-weight: 900; text-align: center; margin: 15px 0; }
+        .table-container { flex-grow: 1; background: white; overflow: auto; width: 100%; border-top: 1px solid var(--border); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; table-layout: fixed; }
         
         thead th { 
-            position: sticky; top: 0; 
+            position: sticky; 
+            top: 0; 
             background: white; 
-            padding: 16px 4px; 
-            font-size: 0.85rem; 
-            font-weight: 900; 
+            padding: 15px; 
+            font-size: 0.8rem; 
+            font-weight: 800; 
             color: var(--primary); 
             border-bottom: 2px solid var(--primary); 
-            z-index: 400; 
+            z-index: 400;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-
+        
+        thead th:not(:first-child):hover {
+            background: #F3E5F5;
+            color: #BE4AAD;
+        }
+        
         .time-col { 
-            position: sticky; left: 0; 
-            background: white; 
-            width: 130px; 
+            position: sticky; 
+            left: 0; 
+            background: #FFFFFF; 
+            width: 140px; 
+            z-index: 800; 
             border-right: 1px solid var(--border); 
-            z-index: 500; 
+            text-align: left; 
+            font-size: 10px; 
+            font-weight: 700; 
+            color: var(--primary);
+            padding: 8px 12px !important;
+            line-height: 1.4;
         }
-
-        .time-grid { 
-            display: flex; align-items: center; justify-content: center; 
-            height: 50px; gap: 4px; 
+        
+        .time-label {
+            display: block;
         }
-        .t-cell { font-weight: 700; font-size: 13px; color: var(--primary); }
-        .t-cell small { font-size: 9px; margin-left: 2px; color: #64748b; }
-
+        
+        .time-start {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        
+        .time-end {
+            font-size: 9px;
+            color: #64748b;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        .time-separator {
+            display: inline-block;
+            margin: 0 4px;
+            color: #94a3b8;
+        }
+        
         td { padding: 4px; border-bottom: 1px solid #F1F5F9; }
         .slot { 
-            min-height: 42px; 
+            min-height: 52px; 
+            height: auto; 
             background: #F8FAFC; 
             border-radius: 6px; 
-            cursor: pointer; 
             border: 1px solid #EDF2F7; 
-            transition: all 0.1s ease; 
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2px;
-            padding: 4px;
-            align-content: flex-start;
-            position: relative;
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 4px; 
+            padding: 6px; 
+            align-content: flex-start; 
+            transition: 0.1s; 
+            position: relative; 
         }
-        .slot.available { 
-            background: #E1BEE7 !important; 
-            border: 2px solid var(--primary); 
+        .slot.available { background: #F3E5F5 !important; border-color: var(--primary); cursor: pointer; }
+        .slot.locked { background: #FCE4EC !important; border-color: var(--blocked-red); cursor: pointer; }
+        .slot.source-selected { outline: 3px solid var(--reschedule-amber); outline-offset: -3px; background: #FEF3C7 !important; }
+        
+        body.edit-mode-active .slot.available,
+        body.edit-mode-active .slot.locked {
+            cursor: grab;
         }
-
-        /* FULL CAPACITY STYLE */
-        .slot.full {
-            background: #FEE2E2 !important;
-            border: 2px solid var(--danger) !important;
-            cursor: not-allowed !important;
-        }
-        .slot.full::after {
-            content: 'FULL';
-            position: absolute;
-            bottom: 1px;
-            right: 2px;
-            font-size: 7px;
-            font-weight: 900;
-            color: var(--danger);
+        
+        body.edit-mode-active .slot.available:active,
+        body.edit-mode-active .slot.locked:active {
+            cursor: grabbing;
         }
 
-        /* INITIALS BADGE */
-        .initial-badge {
-            background: var(--primary);
-            color: white;
-            font-size: 9px;
+        .initials-badge { background: var(--initials-green) !important; color: white !important; font-size: 10px; font-weight: 700; padding: 3px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); white-space: nowrap; pointer-events: none; }
+        .location-tag { width: 100%; color: var(--primary); font-size: 9px; font-weight: 800; margin-top: 4px; border-top: 1px solid rgba(83, 28, 121, 0.1); padding-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        #location-picker { position: fixed; background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 20000; display: none; padding: 8px; min-width: 170px; max-height: 300px; overflow-y: auto; }
+        .loc-option { padding: 10px 14px; font-size: 13px; color: #334155; cursor: pointer; border-radius: 6px; font-weight: 600; transition: all 0.2s; }
+        .loc-option:hover { background: #F1F5F9; color: var(--primary); }
+
+        #confirm-dialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            z-index: 30000;
+            padding: 24px;
+            min-width: 320px;
+            max-width: 400px;
+        }
+        
+        #confirm-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 29999;
+        }
+        
+        .dialog-title {
+            font-size: 18px;
             font-weight: 800;
-            padding: 2px 5px;
-            border-radius: 4px;
-            height: 18px;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+        
+        .dialog-message {
+            font-size: 14px;
+            color: #475569;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .dialog-actions {
             display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .dialog-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .dialog-btn-cancel {
+            background: #E2E8F0;
+            color: #475569;
+        }
+        
+        .dialog-btn-cancel:hover {
+            background: #CBD5E1;
+        }
+        
+        .dialog-btn-confirm {
+            background: #BE4AAD;
+            color: white;
+        }
+        
+        .dialog-btn-confirm:hover {
+            background: #9C3C8D;
+        }
+
+        .fab-wrapper { position: fixed; bottom: 30px; right: 30px; z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        
+        .fab-menu { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
             align-items: center;
-            justify-content: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .fab-menu.show { 
+            max-height: 300px;
+            opacity: 1;
+        }
+        
+        .btn-sub { 
+            width: 180px; 
+            height: 40px; 
+            border-radius: 20px; 
+            border: none; 
+            background: white; 
+            color: var(--primary); 
+            font-weight: 700; 
+            font-size: 11px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            cursor: pointer; 
+            transition: all 0.2s;
+            transform: translateY(0);
+        }
+        
+        .btn-sub:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .btn-main { 
+            width: 60px; 
+            height: 60px; 
+            border-radius: 50%; 
+            border: none; 
+            background: var(--primary); 
+            color: white; 
+            font-size: 24px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            transform: rotate(0deg);
+            box-shadow: 0 4px 15px rgba(83, 28, 121, 0.3);
+        }
+        
+        .btn-main:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(83, 28, 121, 0.4);
+        }
+        
+        .btn-main.active {
+            transform: rotate(135deg);
         }
 
-        /* --- NOTIFICATIONS --- */
-        #toast { 
-            position: fixed; top: 20px; left: 50%; 
-            transform: translateX(-50%) translateY(-100px); 
-            background: var(--success); color: white; 
-            padding: 12px 28px; border-radius: 50px; 
-            font-size: 0.85rem; font-weight: 700; 
-            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            z-index: 11000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-        }
-        #toast.show { transform: translateX(-50%) translateY(0); }
-
-        /* --- MODAL --- */
-        .modal-overlay { 
-            position: fixed; top:0; left:0; width:100%; height:100%; 
-            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-            display: none; align-items: center; justify-content: center; z-index: 10000; 
-        }
-        .modal { background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 400px; text-align: center; }
-        .btn-modal { 
-            width: 100%; padding: 15px; border-radius: 12px; 
-            font-weight: 800; border: none; cursor: pointer; margin-top: 10px; 
-        }
-
-        /* --- FAB --- */
-        .fab-container { position: fixed; bottom: 30px; right: 25px; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px; z-index: 9999; }
-        .fab-main { width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; box-shadow: 0 8px 25px rgba(83, 28, 121, 0.4); }
-        .fab-options { display: none; flex-direction: column; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
-        .fab-container.active .fab-options { display: flex; }
-        .option-item { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-        .option-label { background: white; padding: 8px 15px; border-radius: 10px; font-size: 0.8rem; font-weight: 800; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .option-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 18px; }
+        #toast { position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%); background: #334155; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; display: none; z-index: 10000; }
+        
+        #csv-upload { display: none; }
     </style>
 </head>
-<body>
+<body id="mainBody">
 
-    <h1 class="app-title">AMIS SYNC</h1>
-    <div id="editing-bar">● LIVE EDITING MODE</div>
-
-    <div id="toast"></div>
-
-    <div id="modal-overlay" class="modal-overlay" onclick="if(event.target==this) closeModal()">
-        <div class="modal">
-            <h2 style="color:var(--primary); margin-top:0;">Sync Schedule</h2>
-            <p style="font-size: 0.9rem; color: #64748b;">Upload your AMIS CSV file to automatically fill your available slots.</p>
-            <button class="btn-modal" style="background:var(--primary); color:white;" onclick="document.getElementById('fileInput').click()">CHOOSE CSV FILE</button>
-            <button class="btn-modal" style="background:#F1F5F9; color:#64748b;" onclick="closeModal()">CANCEL</button>
+    <div id="mode-banner">✍️ EDIT MODE ACTIVE - CLICK OR DRAG TO SELECT SLOTS</div>
+    <div id="location-picker"></div>
+    <div id="confirm-overlay"></div>
+    <div id="confirm-dialog">
+        <div class="dialog-title" id="dialog-title">Confirm Action</div>
+        <div class="dialog-message" id="dialog-message">Are you sure?</div>
+        <div class="dialog-actions">
+            <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog()">Cancel</button>
+            <button class="dialog-btn dialog-btn-confirm" id="dialog-confirm">Confirm</button>
         </div>
     </div>
+    <h1 class="app-title">AMIS SYNC</h1>
+    <div id="toast"></div>
 
     <div class="table-container">
         <table>
             <thead>
                 <tr>
-                    <th class="time-col">TIME</th>
-                    <th>SUN</th><th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>
+                    <th>TIME SLOT</th>
+                    <th onclick="handleDayClick('Sunday')">SUN</th>
+                    <th onclick="handleDayClick('Monday')">MON</th>
+                    <th onclick="handleDayClick('Tuesday')">TUE</th>
+                    <th onclick="handleDayClick('Wednesday')">WED</th>
+                    <th onclick="handleDayClick('Thursday')">THU</th>
+                    <th onclick="handleDayClick('Friday')">FRI</th>
+                    <th onclick="handleDayClick('Saturday')">SAT</th>
                 </tr>
             </thead>
             <tbody id="grid"></tbody>
         </table>
     </div>
 
-    <div class="fab-container" id="fabMenu">
-        <button class="fab-main" onclick="toggleFab()">⚙️</button>
-        <div class="fab-options">
-            <div class="option-item" onclick="openInstructions()">
-                <span class="option-label">Sync CSV</span>
-                <button class="option-btn" style="background:#6366f1;">✨</button>
-            </div>
-            <div class="option-item" onclick="toggleEdit()">
-                <span class="option-label" id="editLabel">Edit Mode</span>
-                <button class="option-btn" id="editIconBtn" style="background:var(--primary);">✍️</button>
-            </div>
+    <div class="fab-wrapper">
+        <div class="fab-menu" id="fabMenu">
+            <button class="btn-sub" onclick="triggerCSVUpload()">📄 Upload CSV</button>
+            <button class="btn-sub" onclick="toggleRescheduleMode()" id="reschedBtn">🔄 Reschedule</button>
+            <button class="btn-sub" onclick="handleEditClick()" id="editLabel">✍️ Edit Mode</button>
         </div>
+        <button class="btn-main" id="gearBtn" onclick="toggleMenu()">⚙️</button>
     </div>
 
-    <input type="file" id="fileInput" hidden onchange="handleCSV(event)" accept=".csv">
+    <input type="file" id="csv-upload" accept=".csv" onchange="handleCSVUpload(event)">
 
-<script>
-    const RENDER_URL = "https://scheduleextractor.onrender.com/process";
-    
-    // 1. FIREBASE SETUP
-    const firebaseConfig = {
-        apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
-        databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com"
-    };
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // 1.1 SUPABASE SETUP
-    const supabase = window['supabase-js'].createClient('https://havsuikahafqciurmaeq.supabase.co', 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C');
-    
-    let currentUserName = "Guest";
-    let isEditMode = false;
-    let isDragging = false;
-    let dragMode = true;
-    let userMaxCapacity = 1; // Default to 1
-
-    // 2. DASHBOARD HANDSHAKE
-    window.addEventListener('message', async (event) => {
-        if (event.data && event.data.type === 'SYNC_USER_DATA') {
-            currentUserName = event.data.name;
-            console.log("Active User:", currentUserName);
-            await fetchUserCapacity(); // Fetch settings first
-            loadUserData();
-        }
-    });
-
-    // 3. GENERATE GRID
-    function buildGrid() {
-        let html = '';
-        const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        for(let i=7; i<=19; i++) {
-            let hour = i > 12 ? i-12 : i;
-            let ampm = i >= 12 ? 'PM' : 'AM';
+    <script>
+        // Get current user name from stored data
+        function getCurrentUserName() {
+            // Try sessionStorage first, then localStorage
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
             
-            [ {m:'00', label:`${hour}:00`}, {m:'30', label:`${hour}:30`} ].forEach(row => {
-                html += `<tr><td class="time-col">
-                            <div class="time-grid">
-                                <span class="t-cell">${row.label}<small>${ampm}</small></span>
-                            </div>
-                         </td>`;
+            let userProfile = null;
+            if (sessionProfile) {
+                userProfile = JSON.parse(sessionProfile);
+            } else if (localProfile) {
+                userProfile = JSON.parse(localProfile);
+            }
+            
+            if (userProfile) {
+                return userProfile['Full Name'] || userProfile['full_name'] || 'Resident';
+            }
+            
+            // Fallback
+            return localStorage.getItem("user_Full Name") || "Juan";
+        }
+        
+        const CURRENT_USER_NAME = getCurrentUserName();
+        let isEditMode = false, isRescheduleMode = false, selectedSourceId = null, slotLimit = 3;
+        let userSchedule = [], allRequests = {}, locationChoices = [], activeSlotForLoc = null;
+        let localScheduleState = {};
+        let isDragging = false, dragStartSlot = null;
+
+        firebase.initializeApp({ apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo", databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com" });
+        const db = firebase.database();
+        const supabaseClient = supabase.createClient('https://havsuikahafqciurmaeq.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdnN1aWthaGFmcWNpdXJtYWVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY4MjUwMTgsImV4cCI6MjA1MjQwMTAxOH0.pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C');
+
+        async function fetchLocations() {
+            const { data, error } = await supabaseClient.from('Locations').select('locations');
+            if (data) {
+                locationChoices = data.map(i => i.locations).filter(l => l);
+                console.log("Locations loaded:", locationChoices);
+            }
+        }
+
+        function build() {
+            const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            let h = '';
+            const timeSlots = [
+                {start: '7:00 AM', end: '7:30 AM', id: '700AM'},
+                {start: '7:30 AM', end: '8:00 AM', id: '730AM'},
+                {start: '8:00 AM', end: '8:30 AM', id: '800AM'},
+                {start: '8:30 AM', end: '9:00 AM', id: '830AM'},
+                {start: '9:00 AM', end: '9:30 AM', id: '900AM'},
+                {start: '9:30 AM', end: '10:00 AM', id: '930AM'},
+                {start: '10:00 AM', end: '10:30 AM', id: '1000AM'},
+                {start: '10:30 AM', end: '11:00 AM', id: '1030AM'},
+                {start: '11:00 AM', end: '11:30 AM', id: '1100AM'},
+                {start: '11:30 AM', end: '12:00 PM', id: '1130AM'},
+                {start: '12:00 PM', end: '12:30 PM', id: '1200PM'},
+                {start: '12:30 PM', end: '1:00 PM', id: '1230PM'},
+                {start: '1:00 PM', end: '1:30 PM', id: '100PM'},
+                {start: '1:30 PM', end: '2:00 PM', id: '130PM'},
+                {start: '2:00 PM', end: '2:30 PM', id: '200PM'},
+                {start: '2:30 PM', end: '3:00 PM', id: '230PM'},
+                {start: '3:00 PM', end: '3:30 PM', id: '300PM'},
+                {start: '3:30 PM', end: '4:00 PM', id: '330PM'},
+                {start: '4:00 PM', end: '4:30 PM', id: '400PM'},
+                {start: '4:30 PM', end: '5:00 PM', id: '430PM'},
+                {start: '5:00 PM', end: '5:30 PM', id: '500PM'},
+                {start: '5:30 PM', end: '6:00 PM', id: '530PM'},
+                {start: '6:00 PM', end: '6:30 PM', id: '600PM'},
+                {start: '6:30 PM', end: '7:00 PM', id: '630PM'},
+                {start: '7:00 PM', end: '7:30 PM', id: '700PM'},
+                {start: '7:30 PM', end: '8:00 PM', id: '730PM'}
+            ];
+            
+            timeSlots.forEach(slot => {
+                h += `<tr><td class="time-col">
+                    <span class="time-label time-start">${slot.start}</span>
+                    <span class="time-label time-end">${slot.end}</span>
+                </td>`;
                 days.forEach(day => {
-                    const slotId = `${day}-${hour}${row.m}${ampm}`;
-                    html += `<td><div class="slot" id="${slotId}" 
-                                onmousedown="slotStart(this)" 
-                                onmouseover="slotDrag(this)"></div></td>`;
+                    const fullId = `${day}-${slot.id}`;
+                    h += `<td><div class="slot" id="${fullId}" 
+                        onclick="slotClick(event, this)"
+                        onmousedown="handleDragStart(event, this)"
+                        onmouseenter="handleDragEnter(event, this)"
+                        onmouseup="handleDragEnd(event)"></div></td>`;
                 });
-                html += `</tr>`;
+                h += `</tr>`;
             });
+            document.getElementById('grid').innerHTML = h;
         }
-        document.getElementById('grid').innerHTML = html;
-    }
-    buildGrid();
 
-    // 3.1 CAPACITY HELPERS
-    async function fetchUserCapacity() {
-        try {
-            // Find user category
-            const { data: user } = await supabase.from('users').select('category').eq('full_name', currentUserName).single();
-            if (user) {
-                // Find capacity for that category in settings
-                const { data: setting } = await supabase.from('settings').select('value').eq('category', user.category).single();
-                if (setting) userMaxCapacity = parseInt(setting.value);
+        function handleDragStart(e, el) {
+            if (!isEditMode) return;
+            e.preventDefault(); // Prevent text selection
+            isDragging = true;
+            dragStartSlot = el;
+            if (!el.classList.contains('locked')) {
+                el.classList.toggle('available');
+                localScheduleState[el.id] = el.classList.contains('available');
             }
-        } catch (e) { console.error("Setting fetch error:", e); }
-    }
+            // Prevent text selection during drag
+            document.body.style.userSelect = 'none';
+            document.body.style.webkitUserSelect = 'none';
+        }
 
-    function getInitials(name) {
-        if (!name) return "";
-        return name.split(' ')
-                   .filter(part => part.length > 0)
-                   .map(part => part[0].toUpperCase() + ".")
-                   .join('')
-                   .replace(/\.\.$/, "."); // Handles suffixes like Jr.
-    }
-
-    // 4. FIREBASE READ/WRITE
-    function loadUserData() {
-        if (currentUserName === "Guest") return;
-        
-        // Listen to BOTH Availability and the global Requests node
-        const schedRef = db.ref('schedules/' + currentUserName);
-        const reqRef = db.ref('requests');
-
-        schedRef.on('value', (snap) => {
-            if (isEditMode) return;
-            const schedData = snap.val();
-
-            reqRef.once('value', (reqSnap) => {
-                const allRequests = reqSnap.val() || {};
-
-                // Reset Grid visuals
-                document.querySelectorAll('.slot').forEach(s => {
-                    s.classList.remove('available', 'full');
-                    s.innerHTML = '';
-                    s.dataset.count = 0;
-                });
-
-                // Apply Availability from Cloud
-                if (schedData && schedData.available_slots) {
-                    schedData.available_slots.forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el) el.classList.add('available');
-                    });
-                }
-
-                // Apply Approved Applicant Initials
-                Object.values(allRequests).forEach(req => {
-                    // Filter: Must be for THIS resident AND must be Approved
-                    if (req.resident_name === currentUserName && req.status === 'Approved') {
-                        const slotEl = document.getElementById(req.slot_id);
-                        if (slotEl) {
-                            // Create Badge
-                            const badge = document.createElement('div');
-                            badge.className = 'initial-badge';
-                            badge.innerText = getInitials(req.applicant_name);
-                            slotEl.appendChild(badge);
-
-                            // Track Capacity
-                            let count = (parseInt(slotEl.dataset.count) || 0) + 1;
-                            slotEl.dataset.count = count;
-
-                            // Lock if Capacity Reached
-                            if (count >= userMaxCapacity) {
-                                slotEl.classList.add('full');
-                                slotEl.classList.remove('available');
-                            }
-                        }
+        function handleDragEnter(e, el) {
+            if (!isEditMode || !isDragging) return;
+            if (!el.classList.contains('locked')) {
+                // Match the state of the starting slot
+                if (dragStartSlot) {
+                    const shouldBeAvailable = dragStartSlot.classList.contains('available');
+                    if (shouldBeAvailable) {
+                        el.classList.add('available');
+                    } else {
+                        el.classList.remove('available');
                     }
-                });
-            });
-        });
-    }
-
-    async function saveToFirebase() {
-        if (currentUserName === "Guest") return;
-        
-        const availableOnes = [];
-        // Only save slots currently marked available (ignoring those that were locked by bookings)
-        document.querySelectorAll('.slot.available').forEach(s => availableOnes.push(s.id));
-        
-        try {
-            await db.ref('schedules/' + currentUserName).set({
-                available_slots: availableOnes,
-                lastUpdated: new Date().toISOString()
-            });
-            showToast("Cloud Saved");
-        } catch (e) {
-            showToast("Firebase Error");
-        }
-    }
-
-    // 5. CSV SYNC
-    async function handleCSV(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        closeModal();
-        showToast("Waking up Sync Server...");
-        
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-            const res = await fetch(RENDER_URL, { method: 'POST', body: formData });
-            if (!res.ok) throw new Error("Sync Server Busy");
-            
-            const data = await res.json();
-            
-            // Mark all as available first
-            document.querySelectorAll('.slot').forEach(s => s.classList.add('available'));
-            
-            if (data.busy_slots) {
-                data.busy_slots.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.classList.remove('available');
-                });
-                showToast("Schedule Synced!");
-                saveToFirebase(); 
+                    localScheduleState[el.id] = shouldBeAvailable;
+                }
             }
-        } catch (e) {
-            showToast("Sync Error (Try again in 30s)");
-        } finally {
-            event.target.value = '';
         }
-    }
 
-    // 6. INTERACTION LOGIC
-    function toggleEdit() {
-        isEditMode = !isEditMode;
-        document.body.classList.toggle('is-editing', isEditMode);
-        document.getElementById('editing-bar').style.display = isEditMode ? 'block' : 'none';
-        document.getElementById('editLabel').innerText = isEditMode ? "Save Changes" : "Edit Mode";
-        document.getElementById('editIconBtn').innerText = isEditMode ? "💾" : "✍️";
-        
-        if (!isEditMode) saveToFirebase();
-        else showToast("Editing Enabled");
-        
-        toggleFab();
-    }
-
-    function slotStart(el) {
-        if (!isEditMode) { showToast("Enable Edit Mode to paint slots"); return; }
-        // Prevent editing slots that are FULL
-        if (el.classList.contains('full')) return;
-
-        isDragging = true;
-        dragMode = !el.classList.contains('available');
-        el.classList.toggle('available', dragMode);
-    }
-
-    function slotDrag(el) {
-        if (isDragging && isEditMode && !el.classList.contains('full')) {
-            el.classList.toggle('available', dragMode);
+        function handleDragEnd(e) {
+            if (!isEditMode) return;
+            isDragging = false;
+            dragStartSlot = null;
+            // Re-enable text selection
+            document.body.style.userSelect = '';
+            document.body.style.webkitUserSelect = '';
         }
-    }
 
-    window.onmouseup = () => isDragging = false;
+        // Add global mouseup to catch drag end anywhere
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                dragStartSlot = null;
+                // Re-enable text selection
+                document.body.style.userSelect = '';
+                document.body.style.webkitUserSelect = '';
+            }
+        });
 
-    // 7. UI HELPERS
-    function toggleFab() { document.getElementById('fabMenu').classList.toggle('active'); }
-    function openInstructions() { toggleFab(); document.getElementById('modal-overlay').style.display = 'flex'; }
-    function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
-    function showToast(msg) { 
-        const t = document.getElementById('toast'); 
-        t.innerText = msg; t.classList.add('show'); 
-        setTimeout(() => t.classList.remove('show'), 2500); 
-    }
-</script>
+        function slotClick(e, el) {
+            if (isDragging) return; // Ignore clicks during drag
+            
+            if (isRescheduleMode) {
+                handleRescheduleAction(el);
+            } else if (isEditMode) { 
+                if (!el.classList.contains('locked')) {
+                    el.classList.toggle('available');
+                    localScheduleState[el.id] = el.classList.contains('available');
+                }
+            } else if (el.classList.contains('locked')) {
+                showLocationPicker(e, el.id);
+            }
+        }
 
-</body>
-</html>
+        function handleDayClick(dayName) {
+            showConfirmDialog(
+                'Delete Week Schedule',
+                `Delete all availability schedule for <strong>${dayName}</strong>?`,
+                () => deleteDaySchedule(dayName)
+            );
+        }
 
+        function deleteDaySchedule(dayName) {
+            const slotsToRemove = userSchedule.filter(slot => {
+                const clean = slot.replace("(/)", "");
+                return clean.startsWith(dayName + "-");
+            });
+            
+            const newSchedule = userSchedule.filter(slot => {
+                const clean = slot.replace("(/)", "");
+                return !clean.startsWith(dayName + "-");
+            });
+            
+            // Also remove any approved requests for this day
+            const dayRequests = Object.keys(allRequests).filter(k => {
+                const req = allRequests[k];
+                if (req.resident === CURRENT_USER_NAME && req.status === 'approved') {
+                    const slotId = req.slot_id.replace(/[:\s]/g, "");
+                    return slotId.startsWith(dayName + "-");
+                }
+                return false;
+            });
+            
+            const updates = {};
+            dayRequests.forEach(k => {
+                updates[`requests/${k}/status`] = 'declined';
+            });
+            
+            if (Object.keys(updates).length > 0) {
+                db.ref().update(updates);
+            }
+            
+            db.ref(`schedules/${CURRENT_USER_NAME}/available_slots`).set(newSchedule);
+            toast(`✅ Deleted ${slotsToRemove.length} slots for ${dayName}`);
+        }
+
+        function showConfirmDialog(title, message, onConfirm) {
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-message').innerHTML = message;
+            document.getElementById('confirm-overlay').style.display = 'block';
+            document.getElementById('confirm-dialog').style.display = 'block';
+            
+            const confirmBtn = document.getElementById('dialog-confirm');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            newConfirmBtn.onclick = () => {
+                onConfirm();
+                closeDialog();
+            };
+        }
+
+        function closeDialog() {
+            document.getElementById('confirm-overlay').style.display = 'none';
+            document.getElementById('confirm-dialog').style.display = 'none';
+        }
+
+        function showLocationPicker(e, slotId) {
+            activeSlotForLoc = slotId;
+            const picker = document.getElementById('location-picker');
+            
+            const viewportHeight = window.innerHeight;
+            const estimatedHeight = Math.min(locationChoices.length * 40 + 100, 300);
+            
+            let top = e.clientY;
+            if (top + estimatedHeight > viewportHeight) {
+                top = viewportHeight - estimatedHeight - 10;
+            }
+            
+            picker.style.display = 'block';
+            picker.style.top = `${top}px`;
+            picker.style.left = `${e.clientX}px`;
+            
+            let html = locationChoices.map(loc => 
+                `<div class="loc-option" onclick="applyLocation('${loc.replace(/'/g, "\\'")}')">${loc}</div>`
+            ).join('');
+            html += `<div class="loc-option" style="color:#EF4444; border-top:1px solid #eee; margin-top:5px;" onclick="applyLocation('')">❌ Clear</div>`;
+            
+            picker.innerHTML = html;
+            
+            setTimeout(() => {
+                const closeHandler = (evt) => {
+                    if (!picker.contains(evt.target)) {
+                        picker.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 10);
+        }
+
+        async function applyLocation(loc) {
+            const updates = {};
+            Object.keys(allRequests).forEach(key => {
+                const req = allRequests[key];
+                if (req.resident === CURRENT_USER_NAME && req.slot_id.replace(/[:\s]/g, "") === activeSlotForLoc && req.status === 'approved') {
+                    updates[`requests/${key}/Location`] = loc;
+                }
+            });
+            await db.ref().update(updates);
+            db.ref(`schedules/${CURRENT_USER_NAME}/locations/${activeSlotForLoc}`).set(loc);
+            toast(loc ? `📍 Assigned to ${loc}` : "❌ Location cleared");
+        }
+
+        async function handleRescheduleAction(el) {
+            if (!selectedSourceId) {
+                if (el.querySelector('.initials-badge')) {
+                    selectedSourceId = el.id; 
+                    el.classList.add('source-selected');
+                    toast("👉 Pick destination slot");
+                }
+            } else {
+                const targetId = el.id;
+                const sourceClean = selectedSourceId.replace(/[:\s]/g, "");
+                const moves = Object.keys(allRequests).filter(k => 
+                    allRequests[k].resident === CURRENT_USER_NAME && 
+                    allRequests[k].slot_id.replace(/[:\s]/g, "") === sourceClean
+                );
+                
+                if (moves.length > 0) {
+                    const updates = {};
+                    moves.forEach(k => updates[`requests/${k}/slot_id`] = targetId);
+                    
+                    // Always revert source slot to purple (available) state
+                    const newSchedule = userSchedule.map(s => {
+                        const clean = s.replace("(/)", "");
+                        if (clean === sourceClean) {
+                            // Remove (/) marker if present, making it purple again
+                            return s.replace("(/)", "");
+                        }
+                        return s;
+                    });
+                    
+                    // Update schedule to revert source slot
+                    updates[`schedules/${CURRENT_USER_NAME}/available_slots`] = newSchedule;
+                    
+                    await db.ref().update(updates);
+                    toggleRescheduleMode();
+                    toast("✅ Rescheduled successfully!");
+                }
+            }
+        }
+
+        function toggleRescheduleMode() {
+            isRescheduleMode = !isRescheduleMode; 
+            isEditMode = false;
+            document.getElementById('mainBody').className = isRescheduleMode ? 'reschedule-mode-active' : '';
+            document.getElementById('mode-banner').innerText = isRescheduleMode ? '🔄 RESCHEDULE MODE ACTIVE' : '✍️ EDIT MODE ACTIVE - DRAG TO SELECT';
+            document.getElementById('reschedBtn').innerText = isRescheduleMode ? "❌ Cancel" : "🔄 Reschedule";
+            selectedSourceId = null;
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('source-selected'));
+            closeMenu();
+        }
+
+        function handleEditClick() {
+            isEditMode = !isEditMode; 
+            isRescheduleMode = false;
+            document.getElementById('mainBody').className = isEditMode ? 'edit-mode-active' : '';
+            document.getElementById('editLabel').innerText = isEditMode ? "💾 Save" : "✍️ Edit Mode";
+            
+            if (isEditMode) {
+                localScheduleState = {};
+                toast("✍️ Edit Mode: Click or drag to select slots");
+            } else {
+                saveData();
+            }
+            closeMenu();
+        }
+
+        function saveData() {
+            const slots = [];
+            document.querySelectorAll('.slot').forEach(s => {
+                if (s.classList.contains('locked')) slots.push(s.id + "(/)");
+                else if (s.classList.contains('available')) slots.push(s.id);
+            });
+            db.ref(`schedules/${CURRENT_USER_NAME}/available_slots`).set(slots);
+            localScheduleState = {};
+            toast("💾 Schedule saved!");
+        }
+
+        function render(snap) {
+            const snapVal = snap.val() || {};
+            userSchedule = snapVal.available_slots || [];
+            const locs = snapVal.locations || {};
+            
+            document.querySelectorAll('.slot').forEach(s => { 
+                s.className = 'slot'; 
+                s.innerHTML = ''; 
+            });
+            
+            const counts = {};
+
+            Object.values(allRequests).forEach(req => {
+                if (req.resident === CURRENT_USER_NAME && req.status === 'approved') {
+                    const id = req.slot_id.replace(/[:\s]/g, "");
+                    const cell = document.getElementById(id);
+                    if (cell) {
+                        counts[id] = (counts[id] || 0) + 1;
+                        cell.innerHTML += `<div class="initials-badge">${req.applicant.split(' ').map(n=>n[0]).join('.')}.</div>`;
+                    }
+                }
+            });
+
+            userSchedule.forEach(raw => {
+                const clean = raw.replace("(/)", "");
+                const el = document.getElementById(clean);
+                if (el) {
+                    const isLocked = raw.includes("(/)") || (counts

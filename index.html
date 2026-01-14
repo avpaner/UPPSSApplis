@@ -156,9 +156,9 @@
         const auth = firebase.auth();
         const provider = new firebase.auth.GoogleAuthProvider();
         
-        // Force selection of @up.edu.ph accounts
+        // Force selection of @up.mail.ph accounts
         provider.setCustomParameters({ 
-            hd: "up.edu.ph",
+            hd: "up.mail.ph",
             prompt: 'select_account' 
         });
 
@@ -207,12 +207,34 @@
                     loginBtn.innerText = "VERIFYING PROFILE...";
                     const email = result.user.email;
 
+                    // Validate email domain - must be @up.mail.ph
+                    if (!email || !email.endsWith('@up.mail.ph')) {
+                        errorMsg.innerText = "Access Denied: Only @up.mail.ph email addresses are allowed.";
+                        errorMsg.style.display = 'block';
+                        auth.signOut();
+                        resetBtn();
+                        return;
+                    }
+
                     // Fetch profile from Supabase
                     const match = await getProfileFromSupabase(email);
 
                     if (match) {
-                        // Success: Save profile data to session to use in dashboard
+                        // Success: Save profile data to both sessionStorage and localStorage
+                        // sessionStorage for immediate use, localStorage for persistence
                         sessionStorage.setItem('userProfile', JSON.stringify(match.profile));
+                        sessionStorage.setItem('userRole', match.role);
+                        sessionStorage.setItem('userEmail', email);
+                        
+                        // Store in localStorage for persistence across sessions
+                        localStorage.setItem('userProfile', JSON.stringify(match.profile));
+                        localStorage.setItem('userRole', match.role);
+                        localStorage.setItem('userEmail', email);
+                        
+                        // Store all profile fields individually for easy access
+                        Object.keys(match.profile).forEach(key => {
+                            localStorage.setItem(`user_${key}`, match.profile[key] || '');
+                        });
 
                         // Redirect based on role
                         if (match.role === 'resident') {
@@ -222,7 +244,7 @@
                         }
                     } else {
                         // Fail: Authenticated but not in our database
-                        errorMsg.innerText = "Access Denied: This UP Mail is not registered.";
+                        errorMsg.innerText = "Access Denied: This UP Mail is not registered in the system.";
                         errorMsg.style.display = 'block';
                         auth.signOut();
                         resetBtn();

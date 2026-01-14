@@ -3,16 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Requests Inbox | Sync</title>
+    <title>Requests Inbox | Resident Portal</title>
+    
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
     <style type="text/tailwindcss">
         @theme {
             --color-brand: #531C79;
+            --color-brand-light: #F4EFF8;
             --font-sans: "Inter", system-ui, sans-serif;
         }
+
         .brand-title {
             font-family: 'Inter', sans-serif;
             color: #531C79;
@@ -21,120 +25,160 @@
             text-align: center;
             text-transform: uppercase;
             letter-spacing: -2px;
-            margin: 20px 0 15px 0;
+            margin: 20px 0 5px 0;
+            -webkit-font-smoothing: antialiased;
         }
-        .card-enter { animation: slideIn 0.3s ease-out forwards; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="bg-[#F9FAFB] font-sans antialiased min-h-screen p-4 md:p-8">
+<body class="bg-[#F9FAFB] font-sans antialiased text-gray-900 min-h-screen p-4 md:p-8">
 
-    <h1 class="brand-title">REQUESTS</h1>
+    <header class="mb-10">
+        <h1 class="brand-title">REQUESTS</h1>
+        <div id="user-pill" class="flex justify-center">
+            <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
+                Fetching Resident Identity...
+            </span>
+        </div>
+    </header>
 
     <div id="inbox-container" class="max-w-xl mx-auto space-y-3">
         <div id="loader" class="flex flex-col items-center py-20">
             <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
+            <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Syncing with Firebase...</p>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, update, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 1. CONFIGURATIONS
+        // 1. FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
             authDomain: "uppss-26c6f.firebaseapp.com",
-            databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com/",
             projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
             appId: "1:734429390148:web:97b7cad461e5505943a311"
         };
 
-        const SUPABASE_URL = 'https://havsuikahafqciurmaeq.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C';
-
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const supabase = doc.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const db = getFirestore(app);
 
+        // 2. GET RESIDENT NAME FROM STORED USER DATA
+        function getResidentName() {
+            // Try sessionStorage first, then localStorage
+            const sessionProfile = sessionStorage.getItem('userProfile');
+            const localProfile = localStorage.getItem('userProfile');
+            
+            let userProfile = null;
+            if (sessionProfile) {
+                userProfile = JSON.parse(sessionProfile);
+            } else if (localProfile) {
+                userProfile = JSON.parse(localProfile);
+            }
+            
+            if (userProfile) {
+                return userProfile['Full Name'] || userProfile['full_name'] || 'Unknown Resident';
+            }
+            
+            // Fallback to old method
+            return localStorage.getItem("fullName") || localStorage.getItem("user_Full Name") || "Unknown Resident";
+        }
+        
+        const residentName = getResidentName();
+        document.getElementById('user-pill').innerHTML = `
+            <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
+                Account: ${residentName}
+            </span>
+        `;
+
+        // 3. LISTEN FOR DATA
         const container = document.getElementById('inbox-container');
         const loader = document.getElementById('loader');
 
-        // 2. GET RESIDENT NAME FROM DASHBOARD
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'SYNC_USER_DATA') {
-                initInbox(event.data.name);
+        // Query: Only pending requests for THIS resident
+        const q = query(
+            collection(db, "requests"),
+            where("resident", "==", residentName),
+            where("status", "==", "pending")
+        );
+
+        onSnapshot(q, (snapshot) => {
+            loader.classList.add('hidden');
+            container.innerHTML = "";
+
+            if (snapshot.empty) {
+                container.innerHTML = `
+                    <div class="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                        <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">No pending requests found</p>
+                        <p class="text-gray-300 text-xs mt-1">Check back later or verify the resident name.</p>
+                    </div>`;
+                return;
             }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const id = doc.id;
+                renderRequestCard(id, data);
+            });
+        }, (error) => {
+            console.error("Firebase Error:", error);
+            container.innerHTML = `<p class="text-red-500 text-center text-xs">Error connecting to database. Check rules.</p>`;
         });
 
-        function initInbox(residentName) {
-            const requestsRef = ref(db, 'requests');
-            const pendingQuery = query(requestsRef, orderByChild('resident'), equalTo(residentName));
-
-            onValue(pendingQuery, async (snapshot) => {
-                loader.classList.add('hidden');
-                container.innerHTML = "";
-
-                if (!snapshot.exists()) {
-                    showEmptyState();
-                    return;
-                }
-
-                for (const [id, data] of Object.entries(snapshot.val())) {
-                    if (data.status === "pending") {
-                        const profilePic = await fetchApplicantPicture(data.applicant);
-                        renderCard(id, data, profilePic);
-                    }
-                }
-            });
-        }
-
-        // 3. SUPABASE PIC FETCH
-        async function fetchApplicantPicture(name) {
-            const { data, error } = await supabase
-                .from('Applicants')
-                .select('Picture')
-                .eq('Name', name)
-                .single();
-            
-            return data ? data.Picture : null;
-        }
-
-        function renderCard(id, data, picUrl) {
-            const avatar = picUrl 
-                ? `<img src="${picUrl}" class="w-12 h-12 rounded-xl object-cover">`
-                : `<div class="w-12 h-12 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-bold">${data.applicant.charAt(0)}</div>`;
-
+        // 4. UI RENDERER
+        function renderRequestCard(id, data) {
             const html = `
-                <div id="card-${id}" class="card-enter bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between transition-all">
+                <div id="card-${id}" class="card-enter bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between group transition-all hover:border-brand/20">
                     <div class="flex items-center space-x-4">
-                        ${avatar}
+                        <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-black text-sm">
+                            ${data.applicant.charAt(0)}
+                        </div>
                         <div>
                             <h4 class="font-bold text-gray-900 text-sm leading-none">${data.applicant}</h4>
-                            <p class="text-[10px] text-brand font-black uppercase mt-1.5 tracking-tighter">${data.slot_id}</p>
+                            <p class="text-[10px] text-brand font-bold uppercase mt-1 tracking-tight">${data.slot_id}</p>
                         </div>
                     </div>
+                    
                     <div class="flex space-x-2">
-                        <button onclick="handleAction('${id}', 'Declined')" class="w-10 h-10 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 flex items-center justify-center transition cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        <button onclick="processAction('${id}', 'declined')" class="p-2 rounded-lg border border-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
-                        <button onclick="handleAction('${id}', 'Approved')" class="w-10 h-10 rounded-lg bg-brand text-white flex items-center justify-center hover:shadow-lg hover:shadow-brand/20 active:scale-95 transition cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                        <button onclick="processAction('${id}', 'approved')" class="px-4 py-2 rounded-lg bg-brand text-white font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-brand/20 active:scale-95 transition cursor-pointer">
+                            Approve
                         </button>
                     </div>
-                </div>`;
+                </div>
+            `;
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        window.handleAction = async (id, status) => {
-            const updates = {};
-            updates[`/requests/${id}/status`] = status;
-            await update(ref(db), updates);
+        // 5. FIREBASE UPDATE ACTION
+        window.processAction = async (docId, status) => {
+            const card = document.getElementById(`card-${docId}`);
+            card.style.opacity = "0.4";
+            card.style.pointerEvents = "none";
+            
+            try {
+                const docRef = doc(db, "requests", docId);
+                await updateDoc(docRef, { status: status });
+                // onSnapshot will handle the card removal automatically
+            } catch (err) {
+                console.error("Action failed:", err);
+                card.style.opacity = "1";
+                card.style.pointerEvents = "auto";
+            }
         };
-
-        function showEmptyState() {
-            container.innerHTML = `<p class="text-center py-20 text-gray-400 text-xs font-bold uppercase tracking-widest">No Requests</p>`;
-        }
     </script>
 </body>
 </html>
