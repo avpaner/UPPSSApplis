@@ -81,8 +81,6 @@
             line-height: 1.6;
         }
 
-        .info-box strong { display: block; margin-bottom: 5px; }
-
         .main-content {
             background: white;
             border-radius: 20px;
@@ -119,14 +117,13 @@
             font-weight: 800; 
             color: var(--text-sub); 
             border-bottom: 2px solid var(--border); 
-            width: 80px; 
         }
         .time-col { 
             position: sticky; 
             left: 0; 
             background: #f8fafc !important; 
             z-index: 15; 
-            width: 140px !important; 
+            width: 140px; 
             font-size: 11px; 
             font-weight: 700; 
             text-align: left; 
@@ -175,13 +172,8 @@
         }
 
         @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-            .sidebar {
-                position: relative;
-                top: 0;
-            }
+            .container { grid-template-columns: 1fr; }
+            .sidebar { position: relative; top: 0; }
         }
     </style>
 </head>
@@ -201,7 +193,7 @@
             <div class="input-group">
                 <label>Select Resident</label>
                 <select id="residentSelect" onchange="loadResidentSchedule()">
-                    <option value="">-- Select Resident --</option>
+                    <option value="">-- Loading... --</option>
                 </select>
             </div>
 
@@ -233,11 +225,10 @@
     </div>
 
     <script>
-        // Get user data
+        // --- DATA INITIALIZATION ---
         function getUserData() {
             const sessionProfile = sessionStorage.getItem('userProfile');
             const localProfile = localStorage.getItem('userProfile');
-            
             if (sessionProfile) return JSON.parse(sessionProfile);
             if (localProfile) return JSON.parse(localProfile);
             return null;
@@ -245,12 +236,13 @@
 
         const userProfile = getUserData();
         const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail') || '';
-        const applicantName = userProfile ? (userProfile['Full Name'] || userProfile['full_name'] || '') : '';
+        const applicantName = userProfile ? (userProfile['full_name'] || userProfile['Full Name'] || '') : '';
         
         if (applicantName) {
             document.getElementById('applicantName').value = applicantName;
         }
 
+        // --- CONFIGURATIONS ---
         const firebaseConfig = {
             apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
             authDomain: "uppss-26c6f.firebaseapp.com",
@@ -263,18 +255,18 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Supabase config
         const SUPABASE_URL = 'https://havsuikahafqciurmaeq.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Load residents from Supabase
+        // --- FUNCTIONS ---
         async function loadResidents() {
             try {
+                // Fixed column name formatting
                 const { data, error } = await supabaseClient
                     .from('Residents')
-                    .select('Full Name, email')
-                    .order('Full Name');
+                    .select('full_name') 
+                    .order('full_name', { ascending: true });
                 
                 if (error) throw error;
                 
@@ -282,17 +274,19 @@
                 select.innerHTML = '<option value="">-- Select Resident --</option>';
                 
                 if (data && data.length > 0) {
-                    data.forEach(resident => {
-                        const name = resident['Full Name'] || resident['full_name'] || 'Unknown';
+                    data.forEach(res => {
+                        const name = res.full_name || "Unknown";
                         const option = document.createElement('option');
                         option.value = name;
                         option.textContent = name;
                         select.appendChild(option);
                     });
+                } else {
+                    select.innerHTML = '<option value="">No residents found</option>';
                 }
             } catch (err) {
-                console.error('Error loading residents:', err);
-                notify('Error loading residents', '#f43f5e');
+                console.error('Supabase Error:', err);
+                notify('Database Error: Column mismatch or access denied', '#f43f5e');
             }
         }
 
@@ -314,28 +308,29 @@
             }
             document.getElementById('grid').innerHTML = html;
         }
-        buildGrid();
 
         async function loadResidentSchedule() {
             const resident = document.getElementById('residentSelect').value.trim();
-            if (!resident) {
-                document.querySelectorAll('.slot').forEach(s => s.classList.remove('resident-available', 'selected'));
-                document.getElementById('bookBtn').disabled = true;
-                return;
-            }
-
-            const snap = await db.ref('schedules/' + resident).once('value');
-            const val = snap.val();
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('resident-available', 'selected'));
-            
-            if(val && val.available_slots) {
-                val.available_slots.forEach(id => {
-                    const el = document.getElementById(id);
-                    if(el) el.classList.add('resident-available');
-                });
-                notify(`Showing ${resident}'s availability`, "#531C79");
-            } else { 
-                notify("No schedule found for this resident", "#64748b"); 
+            document.getElementById('bookBtn').disabled = true;
+
+            if (!resident) return;
+
+            try {
+                const snap = await db.ref('schedules/' + resident).once('value');
+                const val = snap.val();
+                
+                if(val && val.available_slots) {
+                    val.available_slots.forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.classList.add('resident-available');
+                    });
+                    notify(`Showing ${resident}'s availability`, "#531C79");
+                } else { 
+                    notify("No availability set for this resident", "#64748b"); 
+                }
+            } catch (e) {
+                notify("Error loading schedule", "#f43f5e");
             }
         }
 
@@ -351,9 +346,9 @@
             const resident = document.getElementById('residentSelect').value.trim();
             const selected = document.querySelector('.slot.selected');
 
-            if(!applicant) return notify("Enter your name first", "#f43f5e");
-            if(!resident) return notify("Select a resident first", "#f43f5e");
-            if(!selected) return notify("Select an available slot", "#f43f5e");
+            if(!applicant) return notify("Name is required", "#f43f5e");
+            if(!resident) return notify("Please select a resident", "#f43f5e");
+            if(!selected) return notify("Please select a time slot", "#f43f5e");
 
             const requestData = {
                 applicant: applicant,
@@ -369,9 +364,8 @@
                 await db.ref('requests').push(requestData);
                 notify("Request Sent Successfully! 🎉", "#10b981");
                 selected.classList.remove('selected');
-                document.getElementById('bookBtn').disabled = false;
             } catch (e) {
-                notify("Database Error", "#f43f5e");
+                notify("Request failed. Try again.", "#f43f5e");
                 document.getElementById('bookBtn').disabled = false;
             }
         }
@@ -384,7 +378,8 @@
             setTimeout(() => s.style.display = 'none', 3000);
         }
 
-        // Load residents on page load
+        // Init
+        buildGrid();
         loadResidents();
     </script>
 </body>
