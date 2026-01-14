@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UPPSS | Request Appointment</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root { 
+            --primary: #6366f1; --bg: #f8fafc; --border: #e2e8f0; --text-sub: #64748b; 
+            --slot-free: #f1f5f9; --slot-available: #dcfce7; --slot-selected: #6366f1; 
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg); display: flex; flex-direction: column; min-height: 100vh; color: #1e293b; }
+
+        aside { width: 300px; background: white; border-right: 1px solid var(--border); padding: 30px; position: fixed; height: 100vh; z-index: 100; }
+        main { margin-left: 300px; flex-grow: 1; padding: 30px; }
+
+        @media (max-width: 900px) {
+            aside { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--border); padding: 20px; }
+            main { margin-left: 0; padding: 15px; }
+        }
+
+        .input-group { margin-bottom: 15px; }
+        label { font-size: 10px; font-weight: 800; color: var(--text-sub); display: block; margin-bottom: 5px; text-transform: uppercase; }
+        input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); font-weight: 600; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+
+        .btn-book { border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: 700; color: white; width: 100%; background: var(--primary); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: 0.2s; }
+        .btn-book:hover { transform: translateY(-2px); opacity: 0.9; }
+
+        .grid-wrapper { background: white; border: 1px solid var(--border); border-radius: 20px; overflow: auto; max-height: 70vh; padding: 15px; }
+        .timetable { border-collapse: separate; border-spacing: 6px; table-layout: fixed; }
+        
+        thead th { position: sticky; top: 0; background: #fff; z-index: 20; padding: 15px 0; font-size: 11px; font-weight: 800; color: var(--text-sub); border-bottom: 2px solid var(--border); width: 80px; }
+        .time-col { position: sticky; left: 0; background: #f8fafc !important; z-index: 15; width: 120px !important; font-size: 10px; font-weight: 700; text-align: center; border-right: 2px solid var(--border); color: var(--text-sub); }
+        thead th:first-child { left: 0; z-index: 25; background: #fff; width: 120px; }
+
+        .slot { width: 65px; height: 65px; border-radius: 12px; background: var(--slot-free); transition: 0.2s; cursor: not-allowed; }
+        .slot.resident-available { background: var(--slot-available); cursor: pointer; border: 1px solid #bbf7d0; }
+        .slot.resident-available:hover { transform: scale(1.05); }
+        .slot.selected { background: var(--primary) !important; box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); transform: scale(1.1); }
+
+        #toast { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; border-radius: 12px; color: white; font-weight: 700; display: none; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <aside>
+        <h1 style="font-weight: 800; color: var(--primary); font-size: 1.6rem; margin-bottom: 20px;">APPOINTMENT</h1>
+        
+        <div class="input-group">
+            <label>Your Name (Applicant)</label>
+            <input type="text" id="applicantName" placeholder="Enter your name">
+        </div>
+
+        <div class="input-group">
+            <label>Resident to Visit</label>
+            <input type="text" id="residentSearch" value="Juan" onchange="loadResidentSchedule()">
+        </div>
+
+        <button class="btn-book" onclick="saveRequest()">Request Appointment</button>
+
+        <div style="margin-top: 20px; font-size: 11px; color: var(--text-sub);">
+            <p>1. Enter your name.</p>
+            <p>2. Find a <b>green</b> available slot.</p>
+            <p>3. Submit request to Resident.</p>
+        </div>
+    </aside>
+
+    <main>
+        <div class="grid-wrapper">
+            <table class="timetable">
+                <thead>
+                    <tr>
+                        <th>Time Range</th>
+                        <th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>
+                    </tr>
+                </thead>
+                <tbody id="grid"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+            authDomain: "uppss-26c6f.firebaseapp.com",
+            databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com",
+            projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
+            appId: "1:734429390148:web:97b7cad461e5505943a311",
+            measurementId: "G-0YZN3JDQLT"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        function buildGrid() {
+            let html = '';
+            for (let i = 0; i < 27; i++) { 
+                let startT = 420 + (i * 30); 
+                let sH = Math.floor(startT/60), sM = startT%60===0?'00':'30', sAP = sH>=12?'PM':'AM', sDH = sH>12?sH-12:(sH===0?12:sH);
+                let endT = startT + 30;
+                let eH = Math.floor(endT/60), eM = endT%60===0?'00':'30', eAP = eH>=12?'PM':'AM', eDH = eH>12?eH-12:(eH===0?12:eH);
+                let timeKey = `${sDH}${sM}${sAP}`;
+                html += `<tr><td class="time-col"><b>${sDH}:${sM}</b><br><small>${eDH}:${eM} ${eAP}</small></td>`;
+                days.forEach(d => { html += `<td><div class="slot" id="${d}-${timeKey}" onclick="selectSlot(this)"></div></td>`; });
+                html += `</tr>`;
+            }
+            document.getElementById('grid').innerHTML = html;
+        }
+        buildGrid();
+
+        async function loadResidentSchedule() {
+            const resident = document.getElementById('residentSearch').value.trim();
+            const snap = await db.ref('schedules/' + resident).once('value');
+            const val = snap.val();
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('resident-available', 'selected'));
+            if(val && val.available_slots) {
+                val.available_slots.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.classList.add('resident-available');
+                });
+                notify("Showing " + resident + "'s availability", "#6366f1");
+            } else { notify("No schedule found", "#64748b"); }
+        }
+
+        function selectSlot(el) {
+            if(!el.classList.contains('resident-available')) return;
+            document.querySelectorAll('.slot.selected').forEach(s => s.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        async function saveRequest() {
+            const applicant = document.getElementById('applicantName').value.trim();
+            const resident = document.getElementById('residentSearch').value.trim();
+            const selected = document.querySelector('.slot.selected');
+
+            if(!applicant) return notify("Enter your name first", "#f43f5e");
+            if(!selected) return notify("Select an available slot", "#f43f5e");
+
+            const requestData = {
+                applicant: applicant,
+                resident: resident,
+                slot_id: selected.id,
+                status: "pending",
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                // Generates a unique ID for each new request
+                await db.ref('requests').push(requestData);
+                notify("Request Sent Successfully!", "#10b981");
+                selected.classList.remove('selected');
+            } catch (e) {
+                notify("Database Error", "#f43f5e");
+            }
+        }
+
+        function notify(m, c) {
+            const s = document.getElementById('toast');
+            s.innerText = m; s.style.background = c; s.style.display = 'block';
+            setTimeout(() => s.style.display = 'none', 3000);
+        }
+
+        loadResidentSchedule();
+    </script>
+</body>
+</html>

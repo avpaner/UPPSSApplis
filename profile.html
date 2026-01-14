@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Applicant Registry Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --brand: #531c79; 
+            --brand-light: #7c4d9f;
+            --brand-dark: #3d1459;
+            --text: #1e293b; 
+            --gray: #64748b; 
+            --violet-soft: #f5f3ff;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #f8fafc; 
+            /* Top padding set to 10px to match Calendar tab */
+            padding: 10px 20px 20px 20px; 
+            color: var(--text); 
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .header-section { text-align: center; margin-bottom: 25px; }
+        
+        .header-section h1 { 
+            font-family: 'Inter', sans-serif;
+            color: #531c79; 
+            font-weight: 900; 
+            font-size: clamp(32px, 8vw, 50px); 
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            /* Zeroed margin to rely on body padding */
+            margin-top: 0px; 
+            margin-bottom: 10px;
+            line-height: 1.1;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .search-container { position: relative; max-width: 450px; margin: 0 auto; }
+        .search-box { 
+            width: 100%; 
+            padding: 12px 20px; 
+            border-radius: 99px; 
+            border: 1px solid #e2e8f0; 
+            font-family: inherit; 
+            font-size: 1rem;
+            outline: none;
+            box-shadow: var(--card-shadow);
+            transition: all 0.2s;
+        }
+        .search-box:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(83, 28, 121, 0.1); }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+            gap: 15px; 
+        }
+
+        @media (min-width: 1024px) {
+            .grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
+        }
+
+        .card { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            text-align: center;
+            cursor: pointer; 
+            border: 1px solid #f1f5f9; 
+            transition: all 0.2s ease-in-out;
+            box-shadow: var(--card-shadow);
+        }
+        .card:hover { transform: translateY(-4px); border-color: var(--brand-light); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+
+        .card-img-wrap {
+            width: 100px; height: 100px; border-radius: 12px; margin-bottom: 12px;
+            overflow: hidden; background: var(--violet-soft);
+        }
+        .card img { width: 100%; height: 100%; object-fit: contain; }
+
+        .card-info h3 { font-size: 0.9rem; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 4px; }
+        .card-info p { font-size: 0.75rem; color: var(--gray); font-weight: 500; }
+
+        .modal-ov { 
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); 
+            backdrop-filter: blur(4px); display: none; justify-content: center; 
+            align-items: center; z-index: 1000; padding: 15px; 
+        }
+
+        .prof { 
+            display: flex; background: white; width: 100%; max-width: 750px; 
+            border-radius: 24px; overflow: hidden; position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .img-s { 
+            width: 45%; position: relative; background: #000; 
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .blur-bg {
+            position: absolute; width: 120%; height: 120%;
+            object-fit: cover; filter: blur(20px) brightness(0.6);
+            transform: scale(1.1);
+        }
+        .main-img { position: relative; width: 100%; height: 100%; object-fit: contain; z-index: 2; }
+
+        .inf-s { width: 55%; display: flex; flex-direction: column; }
+        
+        /* UPDATED PROFILE HEADER SPACING */
+        .inf-h { 
+            background: var(--brand); 
+            padding: 20px 30px; /* Reduced top/bottom padding */
+            color: white; 
+        }
+        
+        .inf-b { padding: 30px; background: white; flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
+        
+        .lbl { font-size: 0.7rem; font-weight: 800; color: var(--gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .val { font-size: 1rem; font-weight: 600; color: var(--text); }
+
+        .fb-btn { 
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: #1877F2; color: white; padding: 12px; border-radius: 12px; 
+            text-decoration: none; font-weight: 700; font-size: 0.9rem; transition: opacity 0.2s;
+        }
+        .fb-btn:hover { opacity: 0.9; }
+
+        .close { 
+            position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.3); 
+            border: none; color: white; width: 32px; height: 32px; border-radius: 50%; 
+            cursor: pointer; z-index: 10; font-size: 1.2rem;
+        }
+
+        .show { display: flex; }
+
+        @media (max-width: 600px) { 
+            .prof { flex-direction: column; max-height: 85vh; width: 95%; } 
+            .img-s { width: 100%; height: 250px; } 
+            .inf-s { width: 100%; }
+            .inf-h, .inf-b { padding: 20px; }
+            .val { font-size: 0.95rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header class="header-section">
+        <h1>Applicant Registry</h1>
+        <div class="search-container">
+            <input type="text" id="search" class="search-box" placeholder="Search by name or batch...">
+        </div>
+    </header>
+
+    <div id="status" style="text-align:center; padding: 40px; color: var(--gray);">
+        <p>Fetching applicants...</p>
+    </div>
+
+    <div id="grid" class="grid"></div>
+</div>
+
+<div class="modal-ov" id="modal" onclick="closeModal()">
+    <div class="prof" onclick="event.stopPropagation()">
+        <button class="close" onclick="closeModal()">&times;</button>
+        
+        <div class="img-s">
+            <img id="p-blur" class="blur-bg" src="">
+            <img id="p-img" class="main-img" src="">
+        </div>
+
+        <div class="inf-s">
+            <div class="inf-h">
+                <h2 id="p-name" style="font-size:1.4rem; text-transform:uppercase; font-weight: 900; letter-spacing: -1px; line-height: 1.1;"></h2>
+                <div id="p-batch" style="font-size:0.8rem; opacity: 0.8; font-weight: 700; margin-top: 5px;"></div>
+            </div>
+            <div class="inf-b">
+                <div>
+                    <div class="lbl">Assigned Sponsor</div>
+                    <div id="p-sponsor" class="val"></div>
+                </div>
+                <div>
+                    <div class="lbl">Institutional Email</div>
+                    <div id="p-mail" class="val" style="word-break: break-all;"></div>
+                </div>
+                <a id="p-fb" href="#" target="_blank" class="fb-btn">
+                    Connect on Facebook
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SB_URL = 'https://havsuikahafqciurmaeq.supabase.co'; 
+    const SB_KEY = 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C';
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+    let allData = [];
+
+    async function init() {
+        try {
+            const { data, error } = await _supabase.from('Applicants').select('*').order('Full Name', { ascending: true });
+            if (error) throw error;
+            allData = data;
+            renderGrid(allData);
+            document.getElementById('status').style.display = 'none';
+        } catch (e) {
+            document.getElementById('status').innerHTML = '<p style="color:red">Failed to load data. Please refresh.</p>';
+        }
+    }
+
+    function renderGrid(items) {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = items.map(item => `
+            <div class="card" onclick='openModal(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                <div class="card-img-wrap">
+                    <img src="${item.Picture || 'https://via.placeholder.com/150'}" onerror="this.src='https://via.placeholder.com/150'">
+                </div>
+                <div class="card-info">
+                    <h3>${item["Full Name"] || 'Unnamed'}</h3>
+                    <p>${item.Batch || 'No Batch'}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openModal(data) {
+        const imgUrl = data.Picture || 'https://via.placeholder.com/300';
+        document.getElementById('p-img').src = imgUrl;
+        document.getElementById('p-blur').src = imgUrl; 
+        document.getElementById('p-name').innerText = data["Full Name"] || '';
+        document.getElementById('p-batch').innerText = data.Batch || 'Unknown Batch';
+        document.getElementById('p-sponsor').innerText = data.Sponsor || 'N/A';
+        document.getElementById('p-mail').innerText = data["UP Mail"] || 'No Email';
+        const fbLink = document.getElementById('p-fb');
+        fbLink.style.display = data.Facebook ? 'flex' : 'none';
+        fbLink.href = data.Facebook || '#';
+        document.getElementById('modal').classList.add('show');
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+    document.getElementById('search').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = allData.filter(p => 
+            (p["Full Name"] || "").toLowerCase().includes(query) || 
+            (p.Batch || "").toLowerCase().includes(query)
+        );
+        renderGrid(filtered);
+    });
+
+    window.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+    init();
+</script>
+</body>
+</html>

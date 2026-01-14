@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UPPSS | Modern Calendar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root { 
+            --primary: #531C79; 
+            --primary-dark: #3a1355;
+            --violet-soft: #f4effa; 
+            --bg: #F8FAFC; 
+            --border: #E2E8F0; 
+            --text-main: #0f172a; 
+            --text-sub: #64748b; 
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        /* --- SPECIFIED TITLE STYLING --- */
+        .page-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: clamp(32px, 8vw, 50px);
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+
+        main { 
+            display: grid; 
+            grid-template-columns: 1fr 420px; 
+            gap: 30px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            padding: 0 25px;
+        }
+
+        /* --- CALENDAR --- */
+        .calendar-box { 
+            background: white; border-radius: 24px; padding: 25px; 
+            border: 1px solid var(--border); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); 
+        }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .cal-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-main); }
+        
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .cal-weekday { font-size: 11px; font-weight: 900; color: var(--primary); text-align: center; padding: 12px 0; text-transform: uppercase; background: var(--violet-soft); border-bottom: 1px solid var(--border); }
+        .day-cell { border: 0.5px solid #f1f5f9; padding: 8px; font-weight: 800; font-size: 14px; position: relative; background: #fff; min-height: 105px; }
+        
+        .ribbon-area { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; flex-direction: column; gap: 2px; }
+        .event-ribbon { height: 20px; background: var(--primary); color: white; font-size: 9px; font-weight: 600; padding: 0 8px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+        .r-start { border-radius: 4px 0 0 4px; margin-left: 4px; width: calc(100% - 4px) !important; }
+        .r-end { border-radius: 0 4px 4px 0; margin-right: 4px; width: calc(100% - 4px) !important; }
+        .r-single { border-radius: 4px; margin: 0 4px; width: calc(100% - 8px) !important; }
+
+        /* --- AGENDA DESIGN --- */
+        .agenda-box { background: white; border-radius: 24px; padding: 25px; border: 1px solid var(--border); }
+        .agenda-title { 
+            font-weight: 900; 
+            font-size: 1.5rem; 
+            margin-bottom: 25px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .agenda-title::before { content: ''; width: 6px; height: 26px; background: var(--primary); border-radius: 3px; }
+        
+        .agenda-scroll { display: flex; flex-direction: column; gap: 18px; }
+        .agenda-item { display: flex; gap: 15px; align-items: stretch; }
+
+        /* The Integrated Range Card */
+        .date-card {
+            min-width: 100px;
+            background: var(--primary);
+            color: white;
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 8px;
+            box-shadow: 0 6px 15px rgba(83, 28, 121, 0.2);
+        }
+        .date-card .month { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; opacity: 0.8; }
+        .date-card .day-range { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; white-space: nowrap; }
+
+        .content-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px 22px;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            border-left: 6px solid var(--primary);
+        }
+        .agenda-item:hover .content-card { transform: translateX(4px); border-color: var(--primary); }
+        .event-name { font-size: 17px; font-weight: 800; color: var(--text-main); line-height: 1.3; }
+
+        .btn-icon { border: 1px solid var(--border); width: 44px; height: 44px; border-radius: 12px; background: white; cursor: pointer; color: var(--primary); font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+        .btn-icon:hover { background: var(--violet-soft); }
+
+        @media (max-width: 1100px) {
+            main { grid-template-columns: 1fr; }
+            .page-title { margin-top: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="page-title">Calendar of Events</h1>
+
+    <main>
+        <section class="calendar-box">
+            <div class="cal-header">
+                <h2 id="monthDisplay"></h2>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn-icon" onclick="changeMonth(-1)">❮</button>
+                    <button class="btn-icon" onclick="changeMonth(1)">❯</button>
+                </div>
+            </div>
+            <div class="cal-grid">
+                <div class="cal-weekday">Sun</div><div class="cal-weekday">Mon</div><div class="cal-weekday">Tue</div>
+                <div class="cal-weekday">Wed</div><div class="cal-weekday">Thu</div><div class="cal-weekday">Fri</div>
+                <div class="cal-weekday">Sat</div>
+                <div id="calendarGrid" style="display: contents;"></div>
+            </div>
+        </section>
+
+        <section class="agenda-box">
+            <h3 class="agenda-title">Upcoming Agenda</h3>
+            <div id="agendaList" class="agenda-scroll"></div>
+        </section>
+    </main>
+
+    <script>
+        const SB_URL = 'https://havsuikahafqciurmaeq.supabase.co/rest/v1/Agenda?select=*';
+        const SB_KEY = 'sb_publishable_pNAu0cwHGyX2Pn_DlX71Og_-t1KZq6C';
+
+        let calDt = new Date();
+        let eventData = [];
+
+        async function initCalendar() {
+            try {
+                const res = await fetch(SB_URL, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } });
+                const data = await res.json();
+                eventData = data.map((item, index) => {
+                    const start = new Date(item.start_date);
+                    const end = new Date(item.end_date);
+                    return {
+                        id: item.id || index,
+                        start: start,
+                        end: end,
+                        title: item.agenda,
+                        duration: (end.setHours(0,0,0,0) - start.setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)
+                    };
+                });
+                renderCalendar();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const list = document.getElementById('agendaList');
+            grid.innerHTML = ''; list.innerHTML = '';
+            document.getElementById('monthDisplay').innerText = calDt.toLocaleDateString('en-us', { month: 'long', year: 'numeric' });
+            
+            const firstDay = new Date(calDt.getFullYear(), calDt.getMonth(), 1).getDay();
+            const daysInMonth = new Date(calDt.getFullYear(), calDt.getMonth() + 1, 0).getDate();
+            
+            for(let i=0; i<42; i++) {
+                let dNum = i - firstDay + 1;
+                const el = document.createElement('div');
+                el.className = 'day-cell';
+                if(dNum > 0 && dNum <= daysInMonth) {
+                    el.innerText = dNum;
+                    const cur = new Date(calDt.getFullYear(), calDt.getMonth(), dNum).setHours(0,0,0,0);
+                    const ribbonArea = document.createElement('div');
+                    ribbonArea.className = 'ribbon-area';
+                    let daysEvents = eventData.filter(ev => {
+                        const s = new Date(ev.start).setHours(0,0,0,0);
+                        const e = new Date(ev.end).setHours(0,0,0,0);
+                        return cur >= s && cur <= e;
+                    });
+                    daysEvents.sort((a, b) => a.duration - b.duration);
+                    daysEvents.forEach(ev => {
+                        const s = new Date(ev.start).setHours(0,0,0,0);
+                        const e = new Date(ev.end).setHours(0,0,0,0);
+                        const ribbon = document.createElement('div');
+                        ribbon.className = 'event-ribbon';
+                        if (cur === s && cur === e) ribbon.classList.add('r-single');
+                        else if (cur === s) ribbon.classList.add('r-start');
+                        else if (cur === e) ribbon.classList.add('r-end');
+                        if (cur === s || new Date(cur).getDay() === 0) ribbon.innerText = ev.title;
+                        ribbonArea.appendChild(ribbon);
+                    });
+                    el.appendChild(ribbonArea);
+                } else { el.style.opacity = '0.2'; }
+                grid.appendChild(el);
+            }
+
+            // AGENDA RENDERING
+            [...eventData].sort((a,b) => a.start - b.start).forEach(ev => {
+                const sM = ev.start.toLocaleDateString('en-us',{month:'short'});
+                const sD = ev.start.getDate();
+                const eD = ev.end.getDate();
+                const isSameDay = ev.start.toDateString() === ev.end.toDateString();
+
+                const displayDay = isSameDay ? sD : `${sD}–${eD}`;
+
+                list.innerHTML += `
+                    <div class="agenda-item">
+                        <div class="date-card">
+                            <span class="month">${sM}</span>
+                            <span class="day-range">${displayDay}</span>
+                        </div>
+                        <div class="content-card">
+                            <div class="event-name">${ev.title}</div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function changeMonth(dir) { calDt.setMonth(calDt.getMonth() + dir); renderCalendar(); }
+        initCalendar();
+    </script>
+</body>
+</html>
