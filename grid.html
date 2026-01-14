@@ -21,50 +21,178 @@
         }
         
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-light); user-select: none; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg-light); 
+            user-select: none; 
+            margin: 0; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
 
-        .app-title { color: var(--primary); font-size: clamp(32px, 8vw, 50px); font-weight: 900; text-align: center; margin: 20px 0 10px 0; letter-spacing: -2px; text-transform: uppercase; }
-        #editing-bar { display: none; background: var(--primary); color: white; text-align: center; padding: 8px; font-size: 0.75rem; font-weight: 900; letter-spacing: 1px; }
+        /* --- HEADER --- */
+        .app-title { 
+            color: var(--primary); 
+            font-size: clamp(32px, 8vw, 50px); 
+            font-weight: 900; 
+            text-align: center; 
+            margin: 20px 0 10px 0; 
+            letter-spacing: -2px; 
+            text-transform: uppercase; 
+        }
 
-        .table-container { flex-grow: 1; background: white; overflow: auto; width: 100%; border: 3px solid transparent; }
+        #editing-bar { 
+            display: none; 
+            background: var(--primary); 
+            color: white; 
+            text-align: center; 
+            padding: 8px; 
+            font-size: 0.75rem; 
+            font-weight: 900; 
+            letter-spacing: 1px; 
+        }
+
+        /* --- GRID TABLE --- */
+        .table-container { 
+            flex-grow: 1; 
+            background: white; 
+            overflow: auto; 
+            position: relative; 
+            width: 100%; 
+            border: 3px solid transparent; 
+        }
         body.is-editing .table-container { border-color: #E1BEE7; }
 
         table { width: 100%; border-collapse: collapse; min-width: 850px; table-layout: fixed; }
-        thead th { position: sticky; top: 0; background: white; padding: 16px 4px; font-size: 0.85rem; font-weight: 900; color: var(--primary); border-bottom: 2px solid var(--primary); z-index: 400; }
+        
+        thead th { 
+            position: sticky; top: 0; 
+            background: white; 
+            padding: 16px 4px; 
+            font-size: 0.85rem; 
+            font-weight: 900; 
+            color: var(--primary); 
+            border-bottom: 2px solid var(--primary); 
+            z-index: 400; 
+        }
 
-        .time-col { position: sticky; left: 0; background: white; width: 130px; border-right: 1px solid var(--border); z-index: 500; }
-        .time-grid { display: flex; align-items: center; justify-content: center; height: 50px; gap: 4px; }
+        .time-col { 
+            position: sticky; left: 0; 
+            background: white; 
+            width: 130px; 
+            border-right: 1px solid var(--border); 
+            z-index: 500; 
+        }
+
+        .time-grid { 
+            display: flex; align-items: center; justify-content: center; 
+            height: 50px; gap: 4px; 
+        }
         .t-cell { font-weight: 700; font-size: 13px; color: var(--primary); }
+        .t-cell small { font-size: 9px; margin-left: 2px; color: #64748b; }
 
-        td { padding: 4px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
+        td { padding: 4px; border-bottom: 1px solid #F1F5F9; }
         .slot { 
-            min-height: 42px; background: #F8FAFC; border-radius: 6px; 
-            cursor: pointer; border: 1px solid #EDF2F7; position: relative;
-            display: flex; flex-wrap: wrap; gap: 2px; padding: 2px; align-content: flex-start;
+            min-height: 42px; 
+            background: #F8FAFC; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            border: 1px solid #EDF2F7; 
+            transition: all 0.1s ease; 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 4px;
+            align-content: flex-start;
+            position: relative;
         }
-        .slot.available { background: #E1BEE7 !important; border: 2px solid var(--primary); }
-        .slot.full { background: #fee2e2 !important; border: 2px solid var(--danger); cursor: not-allowed; }
-
-        /* Initials Badge */
-        .initials-tag {
-            background: var(--primary); color: white; font-size: 9px; 
-            font-weight: 800; padding: 2px 4px; border-radius: 4px;
-            height: 16px; display: flex; align-items: center; justify-content: center;
+        .slot.available { 
+            background: #E1BEE7 !important; 
+            border: 2px solid var(--primary); 
         }
 
-        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--success); color: white; padding: 12px 28px; border-radius: 50px; font-size: 0.85rem; font-weight: 700; transition: 0.4s; z-index: 11000; }
+        /* FULL CAPACITY STYLE */
+        .slot.full {
+            background: #FEE2E2 !important;
+            border: 2px solid var(--danger) !important;
+            cursor: not-allowed !important;
+        }
+        .slot.full::after {
+            content: 'FULL';
+            position: absolute;
+            bottom: 1px;
+            right: 2px;
+            font-size: 7px;
+            font-weight: 900;
+            color: var(--danger);
+        }
+
+        /* INITIALS BADGE */
+        .initial-badge {
+            background: var(--primary);
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 4px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* --- NOTIFICATIONS --- */
+        #toast { 
+            position: fixed; top: 20px; left: 50%; 
+            transform: translateX(-50%) translateY(-100px); 
+            background: var(--success); color: white; 
+            padding: 12px 28px; border-radius: 50px; 
+            font-size: 0.85rem; font-weight: 700; 
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            z-index: 11000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
         #toast.show { transform: translateX(-50%) translateY(0); }
 
+        /* --- MODAL --- */
+        .modal-overlay { 
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 10000; 
+        }
+        .modal { background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 400px; text-align: center; }
+        .btn-modal { 
+            width: 100%; padding: 15px; border-radius: 12px; 
+            font-weight: 800; border: none; cursor: pointer; margin-top: 10px; 
+        }
+
+        /* --- FAB --- */
         .fab-container { position: fixed; bottom: 30px; right: 25px; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px; z-index: 9999; }
-        .fab-main { width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; }
+        .fab-main { width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; box-shadow: 0 8px 25px rgba(83, 28, 121, 0.4); }
+        .fab-options { display: none; flex-direction: column; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+        .fab-container.active .fab-options { display: flex; }
+        .option-item { display: flex; align-items: center; gap: 10px; cursor: pointer; }
         .option-label { background: white; padding: 8px 15px; border-radius: 10px; font-size: 0.8rem; font-weight: 800; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .option-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 18px; }
     </style>
 </head>
 <body>
 
     <h1 class="app-title">AMIS SYNC</h1>
     <div id="editing-bar">● LIVE EDITING MODE</div>
+
     <div id="toast"></div>
+
+    <div id="modal-overlay" class="modal-overlay" onclick="if(event.target==this) closeModal()">
+        <div class="modal">
+            <h2 style="color:var(--primary); margin-top:0;">Sync Schedule</h2>
+            <p style="font-size: 0.9rem; color: #64748b;">Upload your AMIS CSV file to automatically fill your available slots.</p>
+            <button class="btn-modal" style="background:var(--primary); color:white;" onclick="document.getElementById('fileInput').click()">CHOOSE CSV FILE</button>
+            <button class="btn-modal" style="background:#F1F5F9; color:#64748b;" onclick="closeModal()">CANCEL</button>
+        </div>
+    </div>
 
     <div class="table-container">
         <table>
@@ -79,145 +207,253 @@
     </div>
 
     <div class="fab-container" id="fabMenu">
-        <button class="fab-main" onclick="this.parentElement.classList.toggle('active')">⚙️</button>
-        <div style="display:none;" class="fab-options">
-            <div onclick="toggleEdit()" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+        <button class="fab-main" onclick="toggleFab()">⚙️</button>
+        <div class="fab-options">
+            <div class="option-item" onclick="openInstructions()">
+                <span class="option-label">Sync CSV</span>
+                <button class="option-btn" style="background:#6366f1;">✨</button>
+            </div>
+            <div class="option-item" onclick="toggleEdit()">
                 <span class="option-label" id="editLabel">Edit Mode</span>
-                <button style="width:45px; height:45px; border-radius:50%; border:none; background:var(--primary); color:white;">✍️</button>
+                <button class="option-btn" id="editIconBtn" style="background:var(--primary);">✍️</button>
             </div>
         </div>
     </div>
 
+    <input type="file" id="fileInput" hidden onchange="handleCSV(event)" accept=".csv">
+
 <script>
-    // --- CONFIG ---
     const RENDER_URL = "https://scheduleextractor.onrender.com/process";
-    const firebaseConfig = { apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo", databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com" };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
     
-    // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-    const supabase = Object.assign(window['supabase-js']).createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_KEY');
+    // 1. FIREBASE SETUP
+    const firebaseConfig = {
+        apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+        databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
+    // 1.1 SUPABASE SETUP
+    const supabase = window['supabase-js'].createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_KEY');
+    
     let currentUserName = "Guest";
-    let currentUserCategory = "";
-    let userMaxCapacity = 1; 
     let isEditMode = false;
+    let isDragging = false;
+    let dragMode = true;
+    let userMaxCapacity = 1; // Default to 1
 
-    // --- 1. GET INITIALS FUNCTION ---
-    function getInitials(name) {
-        return name.split(' ').map(n => n[0].toUpperCase() + ".").join('').replace(/\.\.$/, ".");
-        // Converts "Abel V. Paner Jr." -> "A.V.P.J."
-    }
-
-    // --- 2. FETCH CAPACITY FROM SUPABASE ---
-    async function fetchCapacity() {
-        if (!currentUserName || currentUserName === "Guest") return;
-        
-        // Find user category first
-        const { data: userData } = await supabase.from('users').select('category').eq('full_name', currentUserName).single();
-        if (userData) {
-            currentUserCategory = userData.category;
-            // Check settings table for the capacity
-            const { data: setts } = await supabase.from('settings').select('value').eq('category', currentUserCategory).single();
-            if (setts) userMaxCapacity = parseInt(setts.value);
+    // 2. DASHBOARD HANDSHAKE
+    window.addEventListener('message', async (event) => {
+        if (event.data && event.data.type === 'SYNC_USER_DATA') {
+            currentUserName = event.data.name;
+            console.log("Active User:", currentUserName);
+            await fetchUserCapacity(); // Fetch settings first
+            loadUserData();
         }
-    }
+    });
 
-    // --- 3. LOAD DATA & RENDER INITIALS ---
-    function syncAllData() {
-        if (currentUserName === "Guest") return;
-
-        // Listen to BOTH Availability and Approved Requests
-        const scheduleRef = db.ref('schedules/' + currentUserName);
-        const requestsRef = db.ref('requests');
-
-        // Watch for changes
-        Promise.all([scheduleRef.once('value'), requestsRef.once('value')]).then(snapshots => {
-            const availSlots = snapshots[0].val()?.available_slots || [];
-            const allRequests = snapshots[1].val() || {};
-
-            // Clear Grid
-            document.querySelectorAll('.slot').forEach(s => {
-                s.classList.remove('available', 'full');
-                s.innerHTML = ''; 
-                s.dataset.count = 0;
-            });
-
-            // Apply Availability
-            availSlots.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('available');
-            });
-
-            // Process Approved Requests for this resident
-            Object.values(allRequests).forEach(req => {
-                if (req.resident_name === currentUserName && req.status === 'Approved') {
-                    const slotEl = document.getElementById(req.slot_id);
-                    if (slotEl) {
-                        // Add Initial Badge
-                        const badge = document.createElement('div');
-                        badge.className = 'initials-tag';
-                        badge.innerText = getInitials(req.applicant_name);
-                        slotEl.appendChild(badge);
-
-                        // Track Capacity
-                        let currentCount = parseInt(slotEl.dataset.count || 0) + 1;
-                        slotEl.dataset.count = currentCount;
-
-                        // Lock if Full
-                        if (currentCount >= userMaxCapacity) {
-                            slotEl.classList.add('full');
-                            slotEl.classList.remove('available');
-                        }
-                    }
-                }
-            });
-        });
-    }
-
-    // --- UI & GRID GEN ---
+    // 3. GENERATE GRID
     function buildGrid() {
         let html = '';
         const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
         for(let i=7; i<=19; i++) {
             let hour = i > 12 ? i-12 : i;
             let ampm = i >= 12 ? 'PM' : 'AM';
-            [{m:'00', label:`${hour}:00`}, {m:'30', label:`${hour}:30`}].forEach(row => {
-                html += `<tr><td class="time-col"><div class="time-grid"><span class="t-cell">${row.label}<small>${ampm}</small></span></div></td>`;
+            
+            [ {m:'00', label:`${hour}:00`}, {m:'30', label:`${hour}:30`} ].forEach(row => {
+                html += `<tr><td class="time-col">
+                            <div class="time-grid">
+                                <span class="t-cell">${row.label}<small>${ampm}</small></span>
+                            </div>
+                         </td>`;
                 days.forEach(day => {
-                    html += `<td><div class="slot" id="${day}-${hour}${row.m}${ampm}"></div></td>`;
+                    const slotId = `${day}-${hour}${row.m}${ampm}`;
+                    html += `<td><div class="slot" id="${slotId}" 
+                                onmousedown="slotStart(this)" 
+                                onmouseover="slotDrag(this)"></div></td>`;
                 });
                 html += `</tr>`;
             });
         }
         document.getElementById('grid').innerHTML = html;
     }
+    buildGrid();
 
+    // 3.1 CAPACITY HELPERS
+    async function fetchUserCapacity() {
+        try {
+            // Find user category
+            const { data: user } = await supabase.from('users').select('category').eq('full_name', currentUserName).single();
+            if (user) {
+                // Find capacity for that category in settings
+                const { data: setting } = await supabase.from('settings').select('value').eq('category', user.category).single();
+                if (setting) userMaxCapacity = parseInt(setting.value);
+            }
+        } catch (e) { console.error("Setting fetch error:", e); }
+    }
+
+    function getInitials(name) {
+        if (!name) return "";
+        return name.split(' ')
+                   .filter(part => part.length > 0)
+                   .map(part => part[0].toUpperCase() + ".")
+                   .join('')
+                   .replace(/\.\.$/, "."); // Handles suffixes like Jr.
+    }
+
+    // 4. FIREBASE READ/WRITE
+    function loadUserData() {
+        if (currentUserName === "Guest") return;
+        
+        // Listen to BOTH Availability and the global Requests node
+        const schedRef = db.ref('schedules/' + currentUserName);
+        const reqRef = db.ref('requests');
+
+        schedRef.on('value', (snap) => {
+            if (isEditMode) return;
+            const schedData = snap.val();
+
+            reqRef.once('value', (reqSnap) => {
+                const allRequests = reqSnap.val() || {};
+
+                // Reset Grid visuals
+                document.querySelectorAll('.slot').forEach(s => {
+                    s.classList.remove('available', 'full');
+                    s.innerHTML = '';
+                    s.dataset.count = 0;
+                });
+
+                // Apply Availability from Cloud
+                if (schedData && schedData.available_slots) {
+                    schedData.available_slots.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.add('available');
+                    });
+                }
+
+                // Apply Approved Applicant Initials
+                Object.values(allRequests).forEach(req => {
+                    // Filter: Must be for THIS resident AND must be Approved
+                    if (req.resident_name === currentUserName && req.status === 'Approved') {
+                        const slotEl = document.getElementById(req.slot_id);
+                        if (slotEl) {
+                            // Create Badge
+                            const badge = document.createElement('div');
+                            badge.className = 'initial-badge';
+                            badge.innerText = getInitials(req.applicant_name);
+                            slotEl.appendChild(badge);
+
+                            // Track Capacity
+                            let count = (parseInt(slotEl.dataset.count) || 0) + 1;
+                            slotEl.dataset.count = count;
+
+                            // Lock if Capacity Reached
+                            if (count >= userMaxCapacity) {
+                                slotEl.classList.add('full');
+                                slotEl.classList.remove('available');
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    }
+
+    async function saveToFirebase() {
+        if (currentUserName === "Guest") return;
+        
+        const availableOnes = [];
+        // Only save slots currently marked available (ignoring those that were locked by bookings)
+        document.querySelectorAll('.slot.available').forEach(s => availableOnes.push(s.id));
+        
+        try {
+            await db.ref('schedules/' + currentUserName).set({
+                available_slots: availableOnes,
+                lastUpdated: new Date().toISOString()
+            });
+            showToast("Cloud Saved");
+        } catch (e) {
+            showToast("Firebase Error");
+        }
+    }
+
+    // 5. CSV SYNC
+    async function handleCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        closeModal();
+        showToast("Waking up Sync Server...");
+        
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch(RENDER_URL, { method: 'POST', body: formData });
+            if (!res.ok) throw new Error("Sync Server Busy");
+            
+            const data = await res.json();
+            
+            // Mark all as available first
+            document.querySelectorAll('.slot').forEach(s => s.classList.add('available'));
+            
+            if (data.busy_slots) {
+                data.busy_slots.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('available');
+                });
+                showToast("Schedule Synced!");
+                saveToFirebase(); 
+            }
+        } catch (e) {
+            showToast("Sync Error (Try again in 30s)");
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    // 6. INTERACTION LOGIC
     function toggleEdit() {
         isEditMode = !isEditMode;
         document.body.classList.toggle('is-editing', isEditMode);
         document.getElementById('editing-bar').style.display = isEditMode ? 'block' : 'none';
-        if (!isEditMode) saveSchedule();
-        syncAllData();
+        document.getElementById('editLabel').innerText = isEditMode ? "Save Changes" : "Edit Mode";
+        document.getElementById('editIconBtn').innerText = isEditMode ? "💾" : "✍️";
+        
+        if (!isEditMode) saveToFirebase();
+        else showToast("Editing Enabled");
+        
+        toggleFab();
     }
 
-    async function saveSchedule() {
-        const availableOnes = [];
-        document.querySelectorAll('.slot.available').forEach(s => availableOnes.push(s.id));
-        await db.ref('schedules/' + currentUserName).set({ available_slots: availableOnes });
-        showToast("Changes Saved");
+    function slotStart(el) {
+        if (!isEditMode) { showToast("Enable Edit Mode to paint slots"); return; }
+        // Prevent editing slots that are FULL
+        if (el.classList.contains('full')) return;
+
+        isDragging = true;
+        dragMode = !el.classList.contains('available');
+        el.classList.toggle('available', dragMode);
     }
 
-    window.addEventListener('message', async (event) => {
-        if (event.data?.type === 'SYNC_USER_DATA') {
-            currentUserName = event.data.name;
-            await fetchCapacity();
-            syncAllData();
+    function slotDrag(el) {
+        if (isDragging && isEditMode && !el.classList.contains('full')) {
+            el.classList.toggle('available', dragMode);
         }
-    });
+    }
 
-    buildGrid();
-    function showToast(m) { const t = document.getElementById('toast'); t.innerText=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2000); }
+    window.onmouseup = () => isDragging = false;
+
+    // 7. UI HELPERS
+    function toggleFab() { document.getElementById('fabMenu').classList.toggle('active'); }
+    function openInstructions() { toggleFab(); document.getElementById('modal-overlay').style.display = 'flex'; }
+    function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+    function showToast(msg) { 
+        const t = document.getElementById('toast'); 
+        t.innerText = msg; t.classList.add('show'); 
+        setTimeout(() => t.classList.remove('show'), 2500); 
+    }
 </script>
+
 </body>
 </html>
