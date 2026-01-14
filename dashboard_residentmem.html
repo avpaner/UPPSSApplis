@@ -29,13 +29,9 @@
         /* Profile Section */
         .sidebar-profile { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
         
-        /* Picture Styling */
         .profile-pic { 
-            width: 42px; 
-            height: 42px; 
-            border-radius: 50%; 
-            object-fit: cover; 
-            background: var(--primary); 
+            width: 42px; height: 42px; border-radius: 50%; 
+            object-fit: cover; background: var(--primary); 
             border: 2px solid var(--border);
         }
 
@@ -98,11 +94,14 @@
         <div id="view-home" class="view active"><iframe src="home.html"></iframe></div>
         <div id="view-prof" class="view"><iframe src="profile.html"></iframe></div>
         <div id="view-cal" class="view"><iframe src="calendar.html"></iframe></div>
-        <div id="view-grid" class="view"><iframe src="grid.html"></iframe></div>
-        <div id="view-req" class="view"><iframe src="requests.html"></iframe></div>
+        <div id="view-grid" class="view"><iframe src="grid.html" id="schedule-iframe"></iframe></div>
+        <div id="view-req" class="view"><iframe src="requests.html" id="requests-iframe"></iframe></div>
     </main>
 
     <script>
+        // Global variable to store profile once loaded
+        let userProfileData = null;
+
         document.addEventListener('DOMContentLoaded', () => {
             const savedData = sessionStorage.getItem('userProfile');
             if (!savedData) {
@@ -110,36 +109,71 @@
                 return;
             }
 
-            const profile = JSON.parse(savedData);
+            userProfileData = JSON.parse(savedData);
             
-            // 1. Identify User Type & Get Subtext
-            // Residents have "Category", Applicants have "Batch"
-            const fullName = profile['Full Name'] || "User";
-            const subtext = profile['Category'] || profile['Batch'] || "Member";
-            const photoUrl = profile['Picture'];
+            const fullName = userProfileData['Full Name'] || "User";
+            const subtext = userProfileData['Category'] || userProfileData['Batch'] || "Member";
+            const photoUrl = userProfileData['Picture'];
 
-            // 2. Update Text Fields
+            // Update UI Sidebar
             document.getElementById('display-name').innerText = fullName;
             document.getElementById('display-subtext').innerText = subtext;
 
-            // 3. Handle Profile Picture or Initial Avatar
+            const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            const fallbackHtml = `<div class="avatar-fallback">${initials}</div>`;
             const avatarHtml = photoUrl 
                 ? `<img src="${photoUrl}" class="profile-pic" onerror="this.style.display='none'; this.nextSibling.style.display='flex'">` 
                 : '';
             
-            const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-            const fallbackHtml = `<div class="avatar-fallback">${initials}</div>`;
-
-            document.getElementById('avatar-container').innerHTML = avatarHtml + (photoUrl ? `<div class="avatar-fallback" style="display:none">${initials}</div>` : fallbackHtml);
-            document.getElementById('m-avatar-container').innerHTML = document.getElementById('avatar-container').innerHTML;
+            const finalAvatarHtml = avatarHtml + (photoUrl ? `<div class="avatar-fallback" style="display:none">${initials}</div>` : fallbackHtml);
+            document.getElementById('avatar-container').innerHTML = finalAvatarHtml;
+            document.getElementById('m-avatar-container').innerHTML = finalAvatarHtml;
         });
 
+        /**
+         * show(id) handles both UI switching AND sending data to iframes
+         */
         function show(id) {
+            // 1. UI Navigation logic
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
             document.getElementById('view-' + id).classList.add('active');
             const dNav = document.getElementById('d-' + id);
             if(dNav) dNav.classList.add('active');
+
+            // 2. Data Sync Logic
+            if (!userProfileData) return;
+
+            // Map the tab ID to the specific Iframe ID
+            const iframeMap = {
+                'grid': 'schedule-iframe',
+                'req': 'requests-iframe'
+            };
+
+            const targetIframeId = iframeMap[id];
+            if (targetIframeId) {
+                const iframe = document.getElementById(targetIframeId);
+                
+                if (iframe) {
+                    const fullName = userProfileData['Full Name'];
+
+                    // Helper to send message
+                    const sendSyncMessage = () => {
+                        iframe.contentWindow.postMessage({
+                            type: 'SYNC_USER_DATA',
+                            name: fullName
+                        }, '*');
+                        console.log(`Syncing ${fullName} to ${targetIframeId}`);
+                    };
+
+                    // Send immediately
+                    sendSyncMessage();
+
+                    // Send again after 500ms in case the iframe was still initializing
+                    setTimeout(sendSyncMessage, 500);
+                }
+            }
         }
     </script>
 </body>
