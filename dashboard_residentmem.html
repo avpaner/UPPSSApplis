@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Resident Portal</title>
+    <title>Management System Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -16,66 +16,60 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); height: 100vh; display: flex; overflow: hidden; }
 
-        /* LOGO STYLING */
-        .logo-container {
-            width: 100%;
-            display: flex;
-            justify-content: center; /* Centers horizontally in Flex */
-            margin-bottom: 40px;
-        }
-
-        .logo {
-            max-width: 150px; 
-            height: auto;
-            display: block;
-        }
-
-        .mobile-header .logo {
-            max-height: 35px;
-            width: auto;
-        }
-
         /* SIDEBAR */
         aside { width: 260px; background: white; border-right: 1px solid var(--border); padding: 30px 20px; display: flex; flex-direction: column; }
+        
+        .logo-container { width: 100%; display: flex; justify-content: center; margin-bottom: 40px; }
+        .logo { max-width: 150px; height: auto; display: block; }
+
         .nav-items { flex-grow: 1; }
         .nav-item { padding: 14px 18px; border-radius: 14px; cursor: pointer; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; transition: all 0.2s ease; }
         .nav-item.active { background: #f5f3ff; color: var(--primary); }
 
-        /* Sidebar Profile Section */
+        /* Profile Section */
         .sidebar-profile { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-        .user-info { font-size: 0.85rem; }
-        .user-name { font-weight: 700; color: #1e293b; display: block; }
-        .user-role { font-size: 0.75rem; color: var(--text-sub); }
+        
+        /* Picture Styling */
+        .profile-pic { 
+            width: 42px; 
+            height: 42px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            background: var(--primary); 
+            border: 2px solid var(--border);
+        }
 
-        /* Mobile Header */
-        .mobile-header { display: none; position: fixed; top: 0; width: 100%; height: 60px; background: white; border-bottom: 1px solid var(--border); z-index: 100; align-items: center; justify-content: space-between; padding: 0 20px; }
-        .m-avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; }
+        .avatar-fallback { 
+            width: 42px; height: 42px; border-radius: 50%; 
+            background: var(--primary); color: white; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: 700; text-transform: uppercase; 
+        }
 
-        /* MOBILE NAV */
-        .mobile-nav { display: none; position: fixed; bottom: 0; width: 100%; height: 70px; background: white; border-top: 1px solid var(--border); z-index: 100; }
-        .m-nav-btn { flex: 1; min-width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: var(--text-sub); }
-        .m-nav-btn.active { color: var(--primary); }
+        .user-info { font-size: 0.85rem; overflow: hidden; }
+        .user-name { font-weight: 800; color: #1e293b; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .user-subtext { font-size: 0.75rem; color: var(--text-sub); font-weight: 600; }
 
-        /* VIEWPORT */
+        /* Viewport */
         main { flex-grow: 1; height: 100vh; position: relative; }
         .view { display: none; height: 100%; width: 100%; }
         .view.active { display: block; }
         iframe { width: 100%; height: 100%; border: none; }
 
+        /* Mobile Adjustments */
+        .mobile-header { display: none; position: fixed; top: 0; width: 100%; height: 60px; background: white; border-bottom: 1px solid var(--border); z-index: 100; align-items: center; justify-content: space-between; padding: 0 20px; }
         @media (max-width: 1100px) {
             aside { display: none; }
             .mobile-header { display: flex; }
-            .mobile-nav { display: flex; }
-            main { height: calc(100vh - 130px); margin-top: 60px; }
+            main { height: calc(100vh - 60px); margin-top: 60px; }
         }
     </style>
 </head>
 <body>
 
     <header class="mobile-header">
-        <img src="logo.png" alt="Logo" class="logo">
-        <div class="m-avatar">JD</div>
+        <img src="logo.png" alt="Logo" class="logo" style="max-height: 30px;">
+        <div id="m-avatar-container"></div>
     </header>
 
     <aside>
@@ -85,28 +79,20 @@
         
         <div class="nav-items">
             <div class="nav-item active" id="d-home" onclick="show('home')">🏠 Homepage</div>
-            <div class="nav-item" id="d-prof" onclick="show('prof')">👤 Applicant Info</div>
+            <div class="nav-item" id="d-prof" onclick="show('prof')">👤 Info</div>
             <div class="nav-item" id="d-cal" onclick="show('cal')">🗓️ Calendar</div>
-            <div class="nav-item" id="d-grid" onclick="show('grid')">📅 Schedule Availability</div>
+            <div class="nav-item" id="d-grid" onclick="show('grid')">📅 Schedule</div>
             <div class="nav-item" id="d-req" onclick="show('req')">📝 Requests</div>
         </div>
 
         <div class="sidebar-profile">
-            <div class="avatar">JD</div>
+            <div id="avatar-container"></div>
             <div class="user-info">
-                <span class="user-name">John Doe</span>
-                <span class="user-role">Resident</span>
+                <span class="user-name" id="display-name">Loading...</span>
+                <span class="user-subtext" id="display-subtext">---</span>
             </div>
         </div>
     </aside>
-
-    <nav class="mobile-nav">
-        <div class="m-nav-btn active" id="m-home" onclick="show('home')"><span>🏠</span><span>HOME</span></div>
-        <div class="m-nav-btn" id="m-prof" onclick="show('prof')"><span>👤</span><span>INFO</span></div>
-        <div class="m-nav-btn" id="m-cal" onclick="show('cal')"><span>🗓️</span><span>CAL</span></div>
-        <div class="m-nav-btn" id="m-grid" onclick="show('grid')"><span>📅</span><span>SCHED</span></div>
-        <div class="m-nav-btn" id="m-req" onclick="show('req')"><span>📝</span><span>REQ</span></div>
-    </nav>
 
     <main>
         <div id="view-home" class="view active"><iframe src="home.html"></iframe></div>
@@ -117,13 +103,43 @@
     </main>
 
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedData = sessionStorage.getItem('userProfile');
+            if (!savedData) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const profile = JSON.parse(savedData);
+            
+            // 1. Identify User Type & Get Subtext
+            // Residents have "Category", Applicants have "Batch"
+            const fullName = profile['Full Name'] || "User";
+            const subtext = profile['Category'] || profile['Batch'] || "Member";
+            const photoUrl = profile['Picture'];
+
+            // 2. Update Text Fields
+            document.getElementById('display-name').innerText = fullName;
+            document.getElementById('display-subtext').innerText = subtext;
+
+            // 3. Handle Profile Picture or Initial Avatar
+            const avatarHtml = photoUrl 
+                ? `<img src="${photoUrl}" class="profile-pic" onerror="this.style.display='none'; this.nextSibling.style.display='flex'">` 
+                : '';
+            
+            const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            const fallbackHtml = `<div class="avatar-fallback">${initials}</div>`;
+
+            document.getElementById('avatar-container').innerHTML = avatarHtml + (photoUrl ? `<div class="avatar-fallback" style="display:none">${initials}</div>` : fallbackHtml);
+            document.getElementById('m-avatar-container').innerHTML = document.getElementById('avatar-container').innerHTML;
+        });
+
         function show(id) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item, .m-nav-btn').forEach(n => n.classList.remove('active'));
-            
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById('view-' + id).classList.add('active');
-            document.getElementById('d-' + id).classList.add('active');
-            document.getElementById('m-' + id).classList.add('active');
+            const dNav = document.getElementById('d-' + id);
+            if(dNav) dNav.classList.add('active');
         }
     </script>
 </body>
