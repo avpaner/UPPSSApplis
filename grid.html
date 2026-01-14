@@ -141,7 +141,7 @@
             top: 20px; 
             left: 50%; 
             transform: translateX(-50%) translateY(-100px); 
-            background: var(--notif-green); /* ALL notifications now use this color */
+            background: var(--notif-green); 
             color: white; 
             padding: 10px 24px; 
             border-radius: 50px; 
@@ -235,7 +235,34 @@
         const RENDER_URL = "https://scheduleextractor.onrender.com/process";
         firebase.initializeApp({ apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo", databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com" });
         const db = firebase.database();
+        
         let isEditMode = false, isDragging = false, dragMode = true, targetDay = "";
+        let userIdentifier = localStorage.getItem('amis_user_id') || "Guest";
+
+        // Logic to pull name from dashboard and setup Firebase path
+        async function setupUser() {
+            try {
+                const response = await fetch('dashboard_residentmem.html');
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Assuming name is inside a specific element, adjust selector if needed
+                const nameElement = doc.querySelector('.resident-name') || doc.querySelector('h1') || doc.querySelector('h2');
+                const fullName = nameElement ? nameElement.innerText.trim() : "User";
+                
+                if (!localStorage.getItem('amis_user_id')) {
+                    const initial = fullName.charAt(0).toUpperCase();
+                    const randomCode = Math.floor(100000 + Math.random() * 900000);
+                    userIdentifier = `${initial}_${randomCode}`;
+                    localStorage.setItem('amis_user_id', userIdentifier);
+                }
+                syncFromFirebase();
+            } catch (e) {
+                console.log("Using default or cached identifier");
+                syncFromFirebase();
+            }
+        }
 
         function build() {
             let h = '';
@@ -254,7 +281,6 @@
             }
             document.getElementById('grid').innerHTML = h;
         }
-        build();
 
         function toggleFab() { document.getElementById('fabMenu').classList.toggle('active'); }
         function openInstructions() { toggleFab(); document.getElementById('modal-overlay').style.display = 'flex'; }
@@ -316,20 +342,22 @@
         function save() {
             const slots = [];
             document.querySelectorAll('.slot.available').forEach(s => slots.push(s.id));
-            db.ref('schedules/Juan').set({ available_slots: slots }).then(() => showToast("Saved to Cloud"));
+            db.ref(`schedules/${userIdentifier}`).set({ available_slots: slots }).then(() => showToast(`Saved to Cloud (${userIdentifier})`));
         }
 
-        db.ref('schedules/Juan').on('value', snap => {
-            if(isEditMode) return;
-            const v = snap.val();
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('available'));
-            if(v?.available_slots) {
-                v.available_slots.forEach(id => {
-                    const s = document.getElementById(id);
-                    if(s) s.classList.add('available');
-                });
-            }
-        });
+        function syncFromFirebase() {
+            db.ref(`schedules/${userIdentifier}`).on('value', snap => {
+                if(isEditMode) return;
+                const v = snap.val();
+                document.querySelectorAll('.slot').forEach(s => s.classList.remove('available'));
+                if(v?.available_slots) {
+                    v.available_slots.forEach(id => {
+                        const s = document.getElementById(id);
+                        if(s) s.classList.add('available');
+                    });
+                }
+            });
+        }
 
         function showToast(msg) { 
             const t = document.getElementById('toast'); 
@@ -337,6 +365,9 @@
             t.classList.add('show'); 
             setTimeout(() => t.classList.remove('show'), 2000); 
         }
+
+        build();
+        setupUser();
     </script>
 </body>
 </html>
