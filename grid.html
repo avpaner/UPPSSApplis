@@ -231,143 +231,143 @@
 
     <input type="file" id="fileInput" hidden onchange="handleCSV(event)">
 
-    <script>
-        const RENDER_URL = "https://scheduleextractor.onrender.com/process";
-        firebase.initializeApp({ apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo", databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com" });
-        const db = firebase.database();
-        
-        let isEditMode = false, isDragging = false, dragMode = true, targetDay = "";
-        let userIdentifier = localStorage.getItem('amis_user_id') || "Guest";
+<script>
+    const RENDER_URL = "https://scheduleextractor.onrender.com/process";
+    firebase.initializeApp({ 
+        apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo", 
+        databaseURL: "https://uppss-26c6f-default-rtdb.firebaseio.com" 
+    });
+    const db = firebase.database();
+    
+    // --- NEW: DYNAMIC USER VARIABLE ---
+    let currentUserName = "Guest"; // Default fallback
+    let isEditMode = false, isDragging = false, dragMode = true, targetDay = "";
 
-        // Logic to pull name from dashboard and setup Firebase path
-        async function setupUser() {
-            try {
-                const response = await fetch('dashboard_residentmem.html');
-                const html = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                
-                // Assuming name is inside a specific element, adjust selector if needed
-                const nameElement = doc.querySelector('.resident-name') || doc.querySelector('h1') || doc.querySelector('h2');
-                const fullName = nameElement ? nameElement.innerText.trim() : "User";
-                
-                if (!localStorage.getItem('amis_user_id')) {
-                    const initial = fullName.charAt(0).toUpperCase();
-                    const randomCode = Math.floor(100000 + Math.random() * 900000);
-                    userIdentifier = `${initial}_${randomCode}`;
-                    localStorage.setItem('amis_user_id', userIdentifier);
+    // --- BRIDGE: LISTEN FOR DATA FROM DASHBOARD ---
+    window.addEventListener('message', (event) => {
+        if (event.data.type === 'SYNC_USER_DATA') {
+            currentUserName = event.data.name;
+            console.log("Grid received user:", currentUserName);
+            
+            // Re-trigger the Firebase load now that we have the real name
+            loadUserData();
+        }
+    });
+
+    function build() {
+        let h = '';
+        for(let i=7; i<=19; i++) {
+            let t = i > 12 ? i-12 : i;
+            let nextT = (i+1) > 12 ? (i+1-12) : (i+1);
+            let ampm = i >= 12 ? 'PM' : 'AM';
+            [{s:`${t}:00`, e:`${t}:30`, id:'00'}, {s:`${t}:30`, e:`${nextT}:00`, id:'30'}].forEach(r => {
+                h += `<tr><td class="time-col"><div class="time-grid"><span class="t-cell">${r.s}</span><span class="t-sep">-</span><span class="t-cell">${r.e}<small>${ampm}</small></span></div></td>`;
+                for(let d=0; d<7; d++) {
+                    let day = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d];
+                    h += `<td><div class="slot" id="${day}-${t}${r.id}${ampm}" onmousedown="slotStart(this)" onmouseover="slotDrag(this)" ontouchstart="slotStart(this)"></div></td>`;
                 }
-                syncFromFirebase();
-            } catch (e) {
-                console.log("Using default or cached identifier");
-                syncFromFirebase();
-            }
-        }
-
-        function build() {
-            let h = '';
-            for(let i=7; i<=19; i++) {
-                let t = i > 12 ? i-12 : i;
-                let nextT = (i+1) > 12 ? (i+1-12) : (i+1);
-                let ampm = i >= 12 ? 'PM' : 'AM';
-                [{s:`${t}:00`, e:`${t}:30`, id:'00'}, {s:`${t}:30`, e:`${nextT}:00`, id:'30'}].forEach(r => {
-                    h += `<tr><td class="time-col"><div class="time-grid"><span class="t-cell">${r.s}</span><span class="t-sep">-</span><span class="t-cell">${r.e}<small>${ampm}</small></span></div></td>`;
-                    for(let d=0; d<7; d++) {
-                        let day = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d];
-                        h += `<td><div class="slot" id="${day}-${t}${r.id}${ampm}" onmousedown="slotStart(this)" onmouseover="slotDrag(this)" ontouchstart="slotStart(this)"></div></td>`;
-                    }
-                    h += `</tr>`;
-                });
-            }
-            document.getElementById('grid').innerHTML = h;
-        }
-
-        function toggleFab() { document.getElementById('fabMenu').classList.toggle('active'); }
-        function openInstructions() { toggleFab(); document.getElementById('modal-overlay').style.display = 'flex'; }
-        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
-        
-        function handleHeaderClick(day) { 
-            if(!isEditMode) { showToast("Enable Edit Mode to modify schedule"); return; }
-            targetDay = day; 
-            document.getElementById('clear-text').innerText = `Clear all availability for ${day}?`; 
-            document.getElementById('confirm-modal-overlay').style.display = 'flex'; 
-        }
-        function closeConfirm() { document.getElementById('confirm-modal-overlay').style.display = 'none'; }
-
-        document.getElementById('executeClear').onclick = () => { 
-            document.querySelectorAll(`[id^="${targetDay}-"]`).forEach(s => s.classList.remove('available')); 
-            closeConfirm(); 
-            showToast(`${targetDay} Cleared`); 
-        };
-
-        function toggleEdit() {
-            isEditMode = !isEditMode;
-            document.body.classList.toggle('is-editing', isEditMode);
-            document.getElementById('editing-bar').style.display = isEditMode ? 'block' : 'none';
-            document.getElementById('editLabel').innerText = isEditMode ? "Save Changes" : "Edit Availability";
-            document.getElementById('editIconBtn').innerText = isEditMode ? "💾" : "✍️";
-            if(!isEditMode) save(); else showToast("Manual Editing Enabled");
-            toggleFab();
-        }
-
-        function slotStart(el) { 
-            if(!isEditMode) { showToast("Enable Edit Mode to modify schedule"); return; }
-            isDragging = true; dragMode = !el.classList.contains('available'); el.classList.toggle('available', dragMode); 
-        }
-        function slotDrag(el) { if(isDragging && isEditMode) el.classList.toggle('available', dragMode); }
-        document.onmouseup = () => isDragging = false;
-
-        async function handleCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            closeModal();
-            showToast("Syncing with AMIS...");
-            const formData = new FormData();
-            formData.append("file", file);
-            try {
-                const res = await fetch(RENDER_URL, { method: 'POST', body: formData });
-                const data = await res.json();
-                document.querySelectorAll('.slot').forEach(s => s.classList.add('available'));
-                if (data.busy_slots) {
-                    data.busy_slots.forEach(id => {
-                        const s = document.getElementById(id);
-                        if(s) s.classList.remove('available');
-                    });
-                }
-                showToast("Schedule Synced!");
-                if(!isEditMode) toggleEdit();
-            } catch (e) { showToast("Connection Error"); } finally { event.target.value = ''; }
-        }
-
-        function save() {
-            const slots = [];
-            document.querySelectorAll('.slot.available').forEach(s => slots.push(s.id));
-            db.ref(`schedules/${userIdentifier}`).set({ available_slots: slots }).then(() => showToast(`Saved to Cloud (${userIdentifier})`));
-        }
-
-        function syncFromFirebase() {
-            db.ref(`schedules/${userIdentifier}`).on('value', snap => {
-                if(isEditMode) return;
-                const v = snap.val();
-                document.querySelectorAll('.slot').forEach(s => s.classList.remove('available'));
-                if(v?.available_slots) {
-                    v.available_slots.forEach(id => {
-                        const s = document.getElementById(id);
-                        if(s) s.classList.add('available');
-                    });
-                }
+                h += `</tr>`;
             });
         }
+        document.getElementById('grid').innerHTML = h;
+    }
+    build();
 
-        function showToast(msg) { 
-            const t = document.getElementById('toast'); 
-            t.innerText = msg; 
-            t.classList.add('show'); 
-            setTimeout(() => t.classList.remove('show'), 2000); 
-        }
+    function toggleFab() { document.getElementById('fabMenu').classList.toggle('active'); }
+    function openInstructions() { toggleFab(); document.getElementById('modal-overlay').style.display = 'flex'; }
+    function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+    
+    function handleHeaderClick(day) { 
+        if(!isEditMode) { showToast("Enable Edit Mode to modify schedule"); return; }
+        targetDay = day; 
+        document.getElementById('clear-text').innerText = `Clear all availability for ${day}?`; 
+        document.getElementById('confirm-modal-overlay').style.display = 'flex'; 
+    }
+    function closeConfirm() { document.getElementById('confirm-modal-overlay').style.display = 'none'; }
 
-        build();
-        setupUser();
-    </script>
+    document.getElementById('executeClear').onclick = () => { 
+        document.querySelectorAll(`[id^="${targetDay}-"]`).forEach(s => s.classList.remove('available')); 
+        closeConfirm(); 
+        showToast(`${targetDay} Cleared`); 
+    };
+
+    function toggleEdit() {
+        isEditMode = !isEditMode;
+        document.body.classList.toggle('is-editing', isEditMode);
+        document.getElementById('editing-bar').style.display = isEditMode ? 'block' : 'none';
+        document.getElementById('editLabel').innerText = isEditMode ? "Save Changes" : "Edit Availability";
+        document.getElementById('editIconBtn').innerText = isEditMode ? "💾" : "✍️";
+        if(!isEditMode) save(); else showToast("Manual Editing Enabled");
+        toggleFab();
+    }
+
+    function slotStart(el) { 
+        if(!isEditMode) { showToast("Enable Edit Mode to modify schedule"); return; }
+        isDragging = true; dragMode = !el.classList.contains('available'); el.classList.toggle('available', dragMode); 
+    }
+    function slotDrag(el) { if(isDragging && isEditMode) el.classList.toggle('available', dragMode); }
+    document.onmouseup = () => isDragging = false;
+
+    async function handleCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        closeModal();
+        showToast("Syncing with AMIS...");
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+            const res = await fetch(RENDER_URL, { method: 'POST', body: formData });
+            const data = await res.json();
+            document.querySelectorAll('.slot').forEach(s => s.classList.add('available'));
+            if (data.busy_slots) {
+                data.busy_slots.forEach(id => {
+                    const s = document.getElementById(id);
+                    if(s) s.classList.remove('available');
+                });
+            }
+            showToast("Schedule Synced!");
+            if(!isEditMode) toggleEdit();
+        } catch (e) { showToast("Connection Error"); } finally { event.target.value = ''; }
+    }
+
+    // --- UPDATED: SAVE TO FIREBASE USING FULL NAME ---
+    function save() {
+        const slots = [];
+        document.querySelectorAll('.slot.available').forEach(s => slots.push(s.id));
+        
+        // We use currentUserName instead of "Juan"
+        db.ref('schedules/' + currentUserName).set({ 
+            available_slots: slots,
+            lastUpdated: new Date().toISOString()
+        }).then(() => showToast("Saved to Cloud"));
+    }
+
+    // --- UPDATED: LOAD DATA FUNCTION ---
+    function loadUserData() {
+        // Stop current listener if it exists
+        db.ref('schedules/' + currentUserName).off();
+
+        // Start new listener for the specific name
+        db.ref('schedules/' + currentUserName).on('value', snap => {
+            if(isEditMode) return;
+            const v = snap.val();
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('available'));
+            if(v?.available_slots) {
+                v.available_slots.forEach(id => {
+                    const s = document.getElementById(id);
+                    if(s) s.classList.add('available');
+                });
+            }
+        });
+    }
+
+    function showToast(msg) { 
+        const t = document.getElementById('toast'); 
+        t.innerText = msg; 
+        t.classList.add('show'); 
+        setTimeout(() => t.classList.remove('show'), 2000); 
+    }
+</script>
 </body>
 </html>
+
