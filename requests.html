@@ -44,8 +44,8 @@
     <header class="mb-10">
         <h1 class="brand-title">REQUESTS</h1>
         <div id="user-pill" class="flex justify-center">
-            <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
-                Fetching Resident Identity...
+            <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest animate-pulse">
+                Awaiting Dashboard Sync...
             </span>
         </div>
     </header>
@@ -53,7 +53,7 @@
     <div id="inbox-container" class="max-w-xl mx-auto space-y-3">
         <div id="loader" class="flex flex-col items-center py-20">
             <div class="w-8 h-8 border-4 border-brand/10 border-t-brand rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Syncing with Firebase...</p>
+            <p class="text-gray-400 text-xs mt-4 font-bold uppercase tracking-tighter">Connecting to Cloud...</p>
         </div>
     </div>
 
@@ -61,60 +61,70 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 1. YOUR FIREBASE CONFIG
+        // 1. FIREBASE CONFIG
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyCZ6z7ldY06D1bUofMEoVUAwMu90bqivuo",
+            authDomain: "uppss-26c6f.firebaseapp.com",
+            projectId: "uppss-26c6f",
+            storageBucket: "uppss-26c6f.firebasestorage.app",
+            messagingSenderId: "734429390148",
+            appId: "1:734429390148:web:97b7cad461e5505943a311"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        // 2. GET NAME FROM DASHBOARD_RESIDENTMEM
-        const residentName = localStorage.getItem("fullName") || "Unknown Resident";
-        document.getElementById('user-pill').innerHTML = `
-            <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
-                Account: ${residentName}
-            </span>
-        `;
-
-        // 3. LISTEN FOR DATA
+        
         const container = document.getElementById('inbox-container');
         const loader = document.getElementById('loader');
+        let unsubscribe = null;
 
-        // Query: Only pending requests for THIS resident
-        const q = query(
-            collection(db, "requests"),
-            where("resident", "==", residentName),
-            where("status", "==", "pending")
-        );
-
-        onSnapshot(q, (snapshot) => {
-            loader.classList.add('hidden');
-            container.innerHTML = "";
-
-            if (snapshot.empty) {
-                container.innerHTML = `
-                    <div class="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                        <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">No pending requests found</p>
-                        <p class="text-gray-300 text-xs mt-1">Check back later or verify the resident name.</p>
-                    </div>`;
-                return;
+        // 2. BRIDGE: LISTEN FOR DATA FROM PARENT (dashboard_residentmem.html)
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'SYNC_USER_DATA') {
+                const fullName = event.data.name;
+                initRequestSync(fullName);
             }
-
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const id = doc.id;
-                renderRequestCard(id, data);
-            });
-        }, (error) => {
-            console.error("Firebase Error:", error);
-            container.innerHTML = `<p class="text-red-500 text-center text-xs">Error connecting to database. Check rules.</p>`;
         });
+
+        function initRequestSync(residentName) {
+            // Update UI Header
+            document.getElementById('user-pill').innerHTML = `
+                <span class="bg-brand/5 text-brand text-[10px] font-black px-3 py-1 rounded-full border border-brand/10 uppercase tracking-widest">
+                    Account: ${residentName}
+                </span>
+            `;
+
+            // Clear any old listeners to prevent duplicate data
+            if (unsubscribe) unsubscribe();
+
+            // 3. START REAL-TIME FIREBASE QUERY
+            const q = query(
+                collection(db, "requests"),
+                where("resident", "==", residentName),
+                where("status", "==", "pending")
+            );
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                loader.classList.add('hidden');
+                container.innerHTML = "";
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                            <p class="text-gray-400 font-bold text-sm uppercase tracking-tight">No pending requests</p>
+                            <p class="text-gray-300 text-[10px] mt-1">Updates appear here automatically.</p>
+                        </div>`;
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    renderRequestCard(doc.id, doc.data());
+                });
+            }, (error) => {
+                console.error("Firebase Error:", error);
+                container.innerHTML = `<p class="text-red-500 text-center text-xs">Error: Check Firebase Rules.</p>`;
+            });
+        }
 
         // 4. UI RENDERER
         function renderRequestCard(id, data) {
@@ -122,11 +132,11 @@
                 <div id="card-${id}" class="card-enter bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between group transition-all hover:border-brand/20">
                     <div class="flex items-center space-x-4">
                         <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-black text-sm">
-                            ${data.applicant.charAt(0)}
+                            ${(data.applicant || "?").charAt(0)}
                         </div>
                         <div>
-                            <h4 class="font-bold text-gray-900 text-sm leading-none">${data.applicant}</h4>
-                            <p class="text-[10px] text-brand font-bold uppercase mt-1 tracking-tight">${data.slot_id}</p>
+                            <h4 class="font-bold text-gray-900 text-sm leading-none">${data.applicant || "Unknown"}</h4>
+                            <p class="text-[10px] text-brand font-bold uppercase mt-1 tracking-tight">${data.slot_id || "Unspecified Slot"}</p>
                         </div>
                     </div>
                     
@@ -143,20 +153,23 @@
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        // 5. FIREBASE UPDATE ACTION
+        // 5. PROCESS ACTION (APPROVE/DECLINE)
         window.processAction = async (docId, status) => {
             const card = document.getElementById(`card-${docId}`);
+            if(!card) return;
+
             card.style.opacity = "0.4";
             card.style.pointerEvents = "none";
             
             try {
                 const docRef = doc(db, "requests", docId);
                 await updateDoc(docRef, { status: status });
-                // onSnapshot will handle the card removal automatically
+                // Note: onSnapshot will automatically remove the card from UI
             } catch (err) {
                 console.error("Action failed:", err);
                 card.style.opacity = "1";
                 card.style.pointerEvents = "auto";
+                alert("Database Update Failed. Check permissions.");
             }
         };
     </script>
